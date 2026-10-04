@@ -46,16 +46,19 @@ bool SecureInput::IsPasswordFastWin32(HWND fg) noexcept {
 bool SecureInput::CachedIsPassword(HWND fg) const noexcept {
     if (!fg) fg = GetForegroundWindow();
     int64_t now = NowMilliseconds();
-    if (fg && fg == cached_hwnd_) {
-        if (now - cached_at_ms_ < 1500) return cached_value_;
+    HWND ch = cached_hwnd_.load(std::memory_order_relaxed);
+    if (fg && fg == ch) {
+        if (now - cached_at_ms_.load(std::memory_order_relaxed) < 1500) {
+            return cached_value_.load(std::memory_order_relaxed);
+        }
         // If window didn't change, stay protected and request fresh UIA check
         const_cast<SecureInput*>(this)->KickAsync();
-        return cached_value_;
+        return cached_value_.load(std::memory_order_relaxed);
     }
     bool is_pass = IsPasswordFastWin32(fg);
-    cached_hwnd_ = fg;
-    cached_value_ = is_pass;
-    cached_at_ms_ = now;
+    cached_hwnd_.store(fg, std::memory_order_relaxed);
+    cached_value_.store(is_pass, std::memory_order_relaxed);
+    cached_at_ms_.store(now, std::memory_order_relaxed);
     const_cast<SecureInput*>(this)->KickAsync();
     return is_pass;
 }
@@ -139,9 +142,9 @@ void SecureInput::WorkerLoop() {
                 }
                 element->Release();
             }
-            cached_hwnd_ = fg;
-            cached_value_ = result;
-            cached_at_ms_ = NowMilliseconds();
+            cached_hwnd_.store(fg, std::memory_order_relaxed);
+            cached_value_.store(result, std::memory_order_relaxed);
+            cached_at_ms_.store(NowMilliseconds(), std::memory_order_relaxed);
         } else if (job == JobType::GetSelection && uia) {
             std::wstring res;
             IUIAutomationElement* element = nullptr;

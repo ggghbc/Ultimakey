@@ -255,14 +255,16 @@ bool LayoutDetector::IsKnownExtension(std::wstring_view ext) noexcept {
     static constexpr std::wstring_view kExts[] = {
         L"7z", L"aac", L"apk", L"app", L"avi", L"bak", L"bat", L"bin", L"bmp", L"bz2",
         L"c", L"cfg", L"cmd", L"com", L"conf", L"cpp", L"cs", L"css", L"csv", L"dart",
-        L"deb", L"dll", L"dmg", L"doc", L"docx", L"env", L"exe", L"flac", L"flv", L"gif",
-        L"gz", L"h", L"hpp", L"htm", L"html", L"ico", L"ini", L"iso", L"java", L"jpeg",
-        L"jpg", L"js", L"json", L"kt", L"less", L"lnk", L"log", L"lua", L"m4a", L"md",
-        L"mkv", L"mov", L"mp3", L"mp4", L"msi", L"ogg", L"pdf", L"php", L"png", L"ppt",
-        L"pptx", L"ps1", L"psd", L"py", L"rar", L"rb", L"rpm", L"rs", L"rtf", L"sass",
-        L"scss", L"sh", L"sql", L"svg", L"swift", L"sys", L"tar", L"tex", L"tgz", L"tif",
-        L"tiff", L"tmp", L"torrent", L"ts", L"tsv", L"txt", L"url", L"vbs", L"wav", L"webm",
-        L"webp", L"wmv", L"xls", L"xlsx", L"xml", L"xz", L"yaml", L"yml", L"zip"
+        L"deb", L"dll", L"dmg", L"doc", L"docx", L"env", L"eps", L"exe", L"flac", L"flv",
+        L"gif", L"gz", L"h", L"hpp", L"htm", L"html", L"ico", L"img", L"ini", L"ipa",
+        L"iso", L"jar", L"java", L"jpeg", L"jpg", L"js", L"json", L"kt", L"less", L"lnk",
+        L"lock", L"log", L"lua", L"m4a", L"m4v", L"md", L"mkv", L"mov", L"mp3", L"mp4",
+        L"msi", L"ogg", L"otf", L"pdf", L"php", L"png", L"ppt", L"pptx", L"ps1", L"psd",
+        L"py", L"rar", L"rb", L"reg", L"rpm", L"rs", L"rtf", L"sass", L"scss", L"sh",
+        L"sql", L"srt", L"svelte", L"svg", L"swift", L"sys", L"tar", L"tex", L"tgz", L"tif",
+        L"tiff", L"tmp", L"toml", L"torrent", L"ts", L"tsv", L"ttf", L"txt", L"url", L"vbs",
+        L"vue", L"wasm", L"wav", L"webm", L"webp", L"wmv", L"woff", L"woff2", L"xls", L"xlsx",
+        L"xml", L"xz", L"yaml", L"yml", L"zip", L"zst"
     };
     return std::binary_search(std::begin(kExts), std::end(kExts), ext);
 }
@@ -305,7 +307,58 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
         }
     }
 
-    // 2. Stripped leading punctuation (e.g. .exe, /exe, -exe, _exe)
+    // 2. File extensions / filenames typed in Russian layout (e.g. юучу -> .exe, учу -> exe, еуыеюече -> test.txt, 123юузп -> 123.png)
+    if (HasCyrillic(raw)) {
+        std::wstring swapped_full = Keymap::Instance().Convert(raw, false);
+        std::wstring swapped_lower = ToLower(swapped_full);
+        size_t s_dot = swapped_lower.rfind(L'.');
+
+        StackBuf<64> raw_b;
+        std::wstring raw_h;
+        std::wstring_view raw_low;
+        if (raw.length() < 64) {
+            raw_b.LowerFrom(raw);
+            raw_low = raw_b.view();
+        } else {
+            raw_h = ToLower(raw);
+            raw_low = raw_h;
+        }
+
+        if (s_dot != std::wstring::npos && s_dot + 1 < swapped_lower.length()) {
+            std::wstring_view ext = std::wstring_view(swapped_lower).substr(s_dot + 1);
+            if (ShouldKeepToken(ext, ignored, learned)) {
+                bool valid_prefix = true;
+                for (size_t i = 0; i < s_dot; ++i) {
+                    wchar_t c = swapped_lower[i];
+                    if (!IsLatin(c) && !IsAsciiDigit(c) && c != L'_' && c != L'-' && c != L'.' && c != L'\\' && c != L'/' && c != L':') {
+                        valid_prefix = false;
+                        break;
+                    }
+                }
+                bool valid_ext = true;
+                for (size_t i = s_dot + 1; i < swapped_lower.length(); ++i) {
+                    wchar_t c = swapped_lower[i];
+                    if (!IsLatin(c) && !IsAsciiDigit(c)) {
+                        valid_ext = false;
+                        break;
+                    }
+                }
+                if (valid_prefix && valid_ext && !words_ru_.Contains(raw_low)) {
+                    return SwapDecision::To(false);
+                }
+            }
+        } else if (ShouldKeepToken(swapped_lower, ignored, learned)) {
+            bool all_lat = true;
+            for (wchar_t c : swapped_lower) {
+                if (!IsLatin(c) && !IsAsciiDigit(c)) { all_lat = false; break; }
+            }
+            if (all_lat && !words_ru_.Contains(raw_low)) {
+                return SwapDecision::To(false);
+            }
+        }
+    }
+
+    // 3. Stripped leading punctuation (e.g. .exe, /exe, -exe, _exe)
     std::wstring_view stripped = raw;
     while (!stripped.empty() && (stripped.front() == L'.' || stripped.front() == L'/' ||
                                 stripped.front() == L'\\' || stripped.front() == L'-' ||
@@ -437,40 +490,6 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
     }
 
     if (swapped == w) return SwapDecision::Keep();
-
-    // Check if swapped is a file extension or filename with extension (e.g. accidental юучу -> .exe, ашдуюучу -> file.exe, юяшз -> .zip, яшз -> zip)
-    if (source_cyrillic) {
-        size_t s_dot = swapped.rfind(L'.');
-        if (s_dot != std::wstring_view::npos && s_dot + 1 < swapped.length()) {
-            std::wstring_view swapped_ext = swapped.substr(s_dot + 1);
-            if (IsKnownExtension(swapped_ext) || ShouldKeepToken(swapped_ext, ignored, learned)) {
-                bool all_valid = true;
-                for (size_t i = 0; i < s_dot; ++i) {
-                    if (!IsLatin(swapped[i]) && !IsAsciiDigit(swapped[i]) && swapped[i] != L'_' && swapped[i] != L'-') {
-                        all_valid = false;
-                        break;
-                    }
-                }
-                for (size_t i = s_dot + 1; i < swapped.length(); ++i) {
-                    if (!IsLatin(swapped[i]) && !IsAsciiDigit(swapped[i])) {
-                        all_valid = false;
-                        break;
-                    }
-                }
-                if (all_valid && !words_ru_.Contains(w)) {
-                    return SwapDecision::To(false);
-                }
-            }
-        } else if (IsKnownExtension(swapped) || ShouldKeepToken(swapped, ignored, learned)) {
-            bool all_lat = true;
-            for (wchar_t c : swapped) {
-                if (!IsLatin(c) && !IsAsciiDigit(c)) { all_lat = false; break; }
-            }
-            if (all_lat && !words_ru_.Contains(w)) {
-                return SwapDecision::To(false);
-            }
-        }
-    }
 
     for (wchar_t c : swapped) {
         if (!IsLatin(c) && !IsCyrillic(c) && c != L'\'') return SwapDecision::Keep();

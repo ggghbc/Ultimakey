@@ -31,6 +31,7 @@ void Settings::SetDefaults() {
     sound_enabled = true;
     autostart = false;
     write_log = true;
+    language = "en";
 
     app_modes = {
         {L"code", L"soft"},
@@ -180,6 +181,7 @@ bool Settings::Save() const {
     ss << "  \"sound_enabled\": " << (sound_enabled ? "true" : "false") << ",\n";
     ss << "  \"autostart\": " << (autostart ? "true" : "false") << ",\n";
     ss << "  \"write_log\": " << (write_log ? "true" : "false") << ",\n";
+    ss << "  \"language\": \"" << language << "\",\n";
 
     // app_modes
     ss << "  \"app_modes\": {\n";
@@ -367,6 +369,11 @@ bool Settings::Load() {
         else if (key == "sound_enabled") sound_enabled = p.ParseBool(sound_enabled);
         else if (key == "autostart") autostart = p.ParseBool(autostart);
         else if (key == "write_log") write_log = p.ParseBool(write_log);
+        else if (key == "language") {
+            std::string l = p.ParseString();
+            if (l == "ru" || l == "en") language = l;
+            else language = "en";
+        }
         else if (key == "launch_count") { p.ParseInt(0); }
         else if (key == "app_modes") {
             if (p.Match('{')) {

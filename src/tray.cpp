@@ -2,6 +2,7 @@
 #include "resource.h"
 #include "settings.hpp"
 #include "engine.hpp"
+#include "i18n.hpp"
 
 namespace Ultimakey {
 
@@ -31,7 +32,7 @@ bool TrayIcon::Create(HWND hwnd, HINSTANCE hinstance) {
     nid_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     nid_.uCallbackMessage = WM_TRAY_CALLBACK;
     nid_.hIcon = icon_on_;
-    wcscpy_s(nid_.szTip, L"Ultimakey - Переключатель раскладки");
+    wcscpy_s(nid_.szTip, Tr(StrId::TrayTitle));
 
     created_ = Shell_NotifyIconW(NIM_ADD, &nid_);
     return created_;
@@ -51,11 +52,11 @@ void TrayIcon::UpdateState(bool auto_enabled, bool paused) {
     nid_.hIcon = is_active ? icon_on_ : icon_off_;
 
     if (paused) {
-        wcscpy_s(nid_.szTip, L"Ultimakey — переключение раскладки (Пауза)");
+        wcscpy_s(nid_.szTip, Tr(StrId::TrayTipPaused));
     } else if (!auto_enabled) {
-        wcscpy_s(nid_.szTip, L"Ultimakey — переключение раскладки (Авторежим выключен)");
+        wcscpy_s(nid_.szTip, Tr(StrId::TrayTipAutoOff));
     } else {
-        wcscpy_s(nid_.szTip, L"Ultimakey — переключение раскладки (Работает)");
+        wcscpy_s(nid_.szTip, Tr(StrId::TrayTipRunning));
     }
 
     Shell_NotifyIconW(NIM_MODIFY, &nid_);
@@ -82,14 +83,14 @@ void TrayIcon::ShowContextMenu(HWND hwnd) {
     bool paused = Engine::Instance().IsPaused();
 
     AppendMenuW(hmenu, MF_STRING | (s.auto_enabled ? MF_CHECKED : MF_UNCHECKED),
-                IDM_TOGGLE_AUTO, L"Автоматическое переключение раскладки");
+                IDM_TOGGLE_AUTO, Tr(StrId::TrayMenuAuto));
     AppendMenuW(hmenu, MF_STRING | (paused ? MF_CHECKED : MF_UNCHECKED),
-                IDM_TOGGLE_PAUSE, L"Приостановить работу (Пауза)");
+                IDM_TOGGLE_PAUSE, Tr(StrId::TrayMenuPause));
     AppendMenuW(hmenu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(hmenu, MF_STRING, IDM_SETTINGS, L"Настройки программы…");
-    AppendMenuW(hmenu, MF_STRING, IDM_OPEN_LOG, L"Показать файл журнала (лога)");
+    AppendMenuW(hmenu, MF_STRING, IDM_SETTINGS, Tr(StrId::TrayMenuSettings));
+    AppendMenuW(hmenu, MF_STRING, IDM_OPEN_LOG, Tr(StrId::TrayMenuLog));
     AppendMenuW(hmenu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(hmenu, MF_STRING, IDM_EXIT, L"Выход из программы");
+    AppendMenuW(hmenu, MF_STRING, IDM_EXIT, Tr(StrId::TrayMenuExit));
 
     SetForegroundWindow(hwnd);
     TrackPopupMenu(hmenu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, pt.x, pt.y, 0, hwnd, nullptr);

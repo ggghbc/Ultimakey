@@ -31,9 +31,9 @@ private:
 
     void WorkerLoop();
 
-    mutable HWND cached_hwnd_ = nullptr;
-    mutable bool cached_value_ = false;
-    mutable int64_t cached_at_ms_ = 0;
+    mutable std::atomic<HWND> cached_hwnd_{nullptr};
+    mutable std::atomic<bool> cached_value_{false};
+    mutable std::atomic<int64_t> cached_at_ms_{0};
 
     std::thread worker_;
     std::mutex mutex_;

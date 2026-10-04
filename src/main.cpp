@@ -5,6 +5,7 @@
 #include "tray.hpp"
 #include "ui_settings.hpp"
 #include "logger.hpp"
+#include "i18n.hpp"
 #include <timeapi.h>
 
 using namespace Ultimakey;
@@ -99,7 +100,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
 
     // 3. Initialize Engine & Language Data from Resources
     if (!Engine::Instance().Initialize(hInstance)) {
-        MessageBoxW(nullptr, L"Не удалось загрузить встроенные языковые словари!", L"Ошибка Ultimakey", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, Tr(StrId::ErrLoadDicts), L"Ultimakey", MB_OK | MB_ICONERROR);
         if (g_single_instance_mutex) CloseHandle(g_single_instance_mutex);
         timeEndPeriod(1);
         return 1;
@@ -133,7 +134,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
 
     // 6. Install Low-Level Keyboard and Mouse Hooks
     if (!HookManager::Instance().Install()) {
-        MessageBoxW(nullptr, L"Не удалось установить хук клавиатуры!", L"Ошибка Ultimakey", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, Tr(StrId::ErrInstallHook), L"Ultimakey", MB_OK | MB_ICONERROR);
         TrayIcon::Instance().Destroy();
         if (g_single_instance_mutex) CloseHandle(g_single_instance_mutex);
         timeEndPeriod(1);

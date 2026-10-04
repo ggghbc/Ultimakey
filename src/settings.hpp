@@ -30,6 +30,7 @@ struct Settings {
     bool sound_enabled = true;
     bool autostart = false;
     bool write_log = true;
+    std::string language = "en";
 
     std::unordered_map<std::wstring, std::wstring, TransparentStringHash, std::equal_to<>> app_modes;
     TransparentStringSet ignored_words;

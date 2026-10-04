@@ -27,6 +27,7 @@ set(SOURCES
     src/logger.cpp
     src/tray.cpp
     src/ui_settings.cpp
+    src/i18n.cpp
     src/resources.rc
 )
 

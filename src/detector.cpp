@@ -438,13 +438,33 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
 
     if (swapped == w) return SwapDecision::Keep();
 
-    // Check if swapped is a file extension starting with a dot (e.g. accidental юучу -> .exe)
-    if (source_cyrillic && swapped.front() == L'.' && swapped.length() > 1) {
-        std::wstring_view swapped_ext = swapped.substr(1);
-        if (IsKnownExtension(swapped_ext) || ShouldKeepToken(swapped_ext, ignored, learned)) {
+    // Check if swapped is a file extension or filename with extension (e.g. accidental юучу -> .exe, ашдуюучу -> file.exe, юяшз -> .zip, яшз -> zip)
+    if (source_cyrillic) {
+        size_t s_dot = swapped.rfind(L'.');
+        if (s_dot != std::wstring_view::npos && s_dot + 1 < swapped.length()) {
+            std::wstring_view swapped_ext = swapped.substr(s_dot + 1);
+            if (IsKnownExtension(swapped_ext) || ShouldKeepToken(swapped_ext, ignored, learned)) {
+                bool all_valid = true;
+                for (size_t i = 0; i < s_dot; ++i) {
+                    if (!IsLatin(swapped[i]) && !IsAsciiDigit(swapped[i]) && swapped[i] != L'_' && swapped[i] != L'-') {
+                        all_valid = false;
+                        break;
+                    }
+                }
+                for (size_t i = s_dot + 1; i < swapped.length(); ++i) {
+                    if (!IsLatin(swapped[i]) && !IsAsciiDigit(swapped[i])) {
+                        all_valid = false;
+                        break;
+                    }
+                }
+                if (all_valid && !words_ru_.Contains(w)) {
+                    return SwapDecision::To(false);
+                }
+            }
+        } else if (IsKnownExtension(swapped) || ShouldKeepToken(swapped, ignored, learned)) {
             bool all_lat = true;
-            for (wchar_t c : swapped_ext) {
-                if (!IsLatin(c)) { all_lat = false; break; }
+            for (wchar_t c : swapped) {
+                if (!IsLatin(c) && !IsAsciiDigit(c)) { all_lat = false; break; }
             }
             if (all_lat && !words_ru_.Contains(w)) {
                 return SwapDecision::To(false);

@@ -548,6 +548,13 @@ std::optional<Engine::Proposal> Engine::AutoProposal(std::wstring_view word, boo
     }
 
     auto is_valid = [this, to_cyr](std::wstring_view w) {
+        if (!to_cyr) {
+            size_t dot = w.rfind(L'.');
+            if (dot != std::wstring_view::npos && dot + 1 < w.length()) {
+                if (LayoutDetector::IsKnownExtension(w.substr(dot + 1))) return true;
+            }
+            if (LayoutDetector::IsKnownExtension(w)) return true;
+        }
         return detector_->WordExistsInSource(w, to_cyr);
     };
 

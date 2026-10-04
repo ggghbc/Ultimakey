@@ -43,6 +43,7 @@ public:
     static bool IsNumericToken(std::wstring_view s) noexcept;
     static bool IsImpossibleRussianSpelling(std::wstring_view w) noexcept;
     static bool IsLayoutLetter(wchar_t c) noexcept;
+    static bool IsKnownExtension(std::wstring_view ext) noexcept;
     static std::wstring_view LetterCore(std::wstring_view raw) noexcept;
     static std::vector<std::wstring> DeElongated(std::wstring_view s);
 

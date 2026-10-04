@@ -251,6 +251,32 @@ bool LayoutDetector::RussianNJAfterLatinLabel(std::wstring_view word, std::wstri
     return upper_count >= 2;
 }
 
+bool LayoutDetector::IsKnownExtension(std::wstring_view ext) noexcept {
+    static constexpr std::wstring_view kExts[] = {
+        L"7z", L"aac", L"apk", L"app", L"avi", L"bak", L"bat", L"bin", L"bmp", L"bz2",
+        L"c", L"cfg", L"cmd", L"com", L"conf", L"cpp", L"cs", L"css", L"csv", L"dart",
+        L"deb", L"dll", L"dmg", L"doc", L"docx", L"env", L"exe", L"flac", L"flv", L"gif",
+        L"gz", L"h", L"hpp", L"htm", L"html", L"ico", L"ini", L"iso", L"java", L"jpeg",
+        L"jpg", L"js", L"json", L"kt", L"less", L"lnk", L"log", L"lua", L"m4a", L"md",
+        L"mkv", L"mov", L"mp3", L"mp4", L"msi", L"ogg", L"pdf", L"php", L"png", L"ppt",
+        L"pptx", L"ps1", L"psd", L"py", L"rar", L"rb", L"rpm", L"rs", L"rtf", L"sass",
+        L"scss", L"sh", L"sql", L"svg", L"swift", L"sys", L"tar", L"tex", L"tgz", L"tif",
+        L"tiff", L"tmp", L"torrent", L"ts", L"tsv", L"txt", L"url", L"vbs", L"wav", L"webm",
+        L"webp", L"wmv", L"xls", L"xlsx", L"xml", L"xz", L"yaml", L"yml", L"zip"
+    };
+    return std::binary_search(std::begin(kExts), std::end(kExts), ext);
+}
+
+static bool ShouldKeepToken(std::wstring_view token,
+                            const TransparentStringSet& ignored,
+                            const TransparentStringSet& learned) noexcept {
+    if (token.empty()) return false;
+    if (ignored.count(token) > 0 || learned.count(token) > 0) return true;
+    if (Data::IsInDefaultKeep(token)) return true;
+    if (LayoutDetector::IsKnownExtension(token)) return true;
+    return false;
+}
+
 SwapDecision LayoutDetector::Decide(std::wstring_view raw,
                                     const TransparentStringSet& ignored,
                                     const TransparentStringSet& learned,
@@ -261,47 +287,72 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
     ContextHint context = ContextOf(prev);
     std::wstring_view letter_core = LetterCore(raw);
 
-    if (!ignored.empty() || !learned.empty()) {
-        StackBuf<64> lit_b, typ_b, who_b;
-        std::wstring lit_h, typ_h, who_h;
-        std::wstring_view literal, typed, whole;
-
-        if (letter_core.length() < 64) {
-            lit_b.LowerFrom(letter_core);
-            literal = lit_b.view();
-        } else { lit_h = ToLower(letter_core); literal = lit_h; }
-
-        std::wstring_view core_v = Keymap::Core(letter_core);
-        if (core_v.length() < 64) {
-            typ_b.LowerFrom(core_v);
-            typed = typ_b.view();
-        } else { typ_h = ToLower(core_v); typed = typ_h; }
-
-        if (raw.length() < 64) {
-            who_b.LowerFrom(raw);
-            whole = who_b.view();
-        } else { who_h = ToLower(raw); whole = who_h; }
-
-        if (ignored.count(literal) || learned.count(literal) ||
-            ignored.count(typed) || learned.count(typed) ||
-            ignored.count(whole) || learned.count(whole)) {
+    // 1. File extensions (e.g. .exe, file.exe, photo.png, C:\test\app.exe)
+    size_t last_dot = raw.rfind(L'.');
+    if (last_dot != std::wstring_view::npos && last_dot + 1 < raw.length()) {
+        std::wstring_view ext_raw = raw.substr(last_dot + 1);
+        StackBuf<32> ext_b;
+        std::wstring_view ext;
+        if (ext_raw.length() < 32) {
+            ext_b.LowerFrom(ext_raw);
+            ext = ext_b.view();
+        } else {
+            std::wstring ext_h = ToLower(ext_raw);
+            ext = ext_h;
+        }
+        if (ShouldKeepToken(ext, ignored, learned)) {
             return SwapDecision::Keep();
         }
+    }
 
-        // File extensions (e.g. .exe, file.exe, photo.png)
-        size_t last_dot = raw.rfind(L'.');
-        if (last_dot != std::wstring_view::npos && last_dot + 1 < raw.length()) {
-            std::wstring_view ext_raw = raw.substr(last_dot + 1);
-            StackBuf<32> ext_b;
-            std::wstring_view ext;
-            if (ext_raw.length() < 32) {
-                ext_b.LowerFrom(ext_raw);
-                ext = ext_b.view();
-            }
-            if (!ext.empty() && (ignored.count(ext) || learned.count(ext))) {
-                return SwapDecision::Keep();
-            }
+    // 2. Stripped leading punctuation (e.g. .exe, /exe, -exe, _exe)
+    std::wstring_view stripped = raw;
+    while (!stripped.empty() && (stripped.front() == L'.' || stripped.front() == L'/' ||
+                                stripped.front() == L'\\' || stripped.front() == L'-' ||
+                                stripped.front() == L'_')) {
+        stripped.remove_prefix(1);
+    }
+    if (!stripped.empty() && stripped.length() != raw.length()) {
+        StackBuf<64> str_b;
+        std::wstring str_h;
+        std::wstring_view str_v;
+        if (stripped.length() < 64) {
+            str_b.LowerFrom(stripped);
+            str_v = str_b.view();
+        } else {
+            str_h = ToLower(stripped);
+            str_v = str_h;
         }
+        if (ShouldKeepToken(str_v, ignored, learned)) {
+            return SwapDecision::Keep();
+        }
+    }
+
+    // 3. Literal token, letter core, and typed core
+    StackBuf<64> lit_b, typ_b, who_b;
+    std::wstring lit_h, typ_h, who_h;
+    std::wstring_view literal, typed, whole;
+
+    if (letter_core.length() < 64) {
+        lit_b.LowerFrom(letter_core);
+        literal = lit_b.view();
+    } else { lit_h = ToLower(letter_core); literal = lit_h; }
+
+    std::wstring_view core_v = Keymap::Core(letter_core);
+    if (core_v.length() < 64) {
+        typ_b.LowerFrom(core_v);
+        typed = typ_b.view();
+    } else { typ_h = ToLower(core_v); typed = typ_h; }
+
+    if (raw.length() < 64) {
+        who_b.LowerFrom(raw);
+        whole = who_b.view();
+    } else { who_h = ToLower(raw); whole = who_h; }
+
+    if (ShouldKeepToken(literal, ignored, learned) ||
+        ShouldKeepToken(typed, ignored, learned) ||
+        ShouldKeepToken(whole, ignored, learned)) {
+        return SwapDecision::Keep();
     }
 
     if (IsEmoticon(raw)) return SwapDecision::Keep();
@@ -386,6 +437,21 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
     }
 
     if (swapped == w) return SwapDecision::Keep();
+
+    // Check if swapped is a file extension starting with a dot (e.g. accidental юучу -> .exe)
+    if (source_cyrillic && swapped.front() == L'.' && swapped.length() > 1) {
+        std::wstring_view swapped_ext = swapped.substr(1);
+        if (IsKnownExtension(swapped_ext) || ShouldKeepToken(swapped_ext, ignored, learned)) {
+            bool all_lat = true;
+            for (wchar_t c : swapped_ext) {
+                if (!IsLatin(c)) { all_lat = false; break; }
+            }
+            if (all_lat && !words_ru_.Contains(w)) {
+                return SwapDecision::To(false);
+            }
+        }
+    }
+
     for (wchar_t c : swapped) {
         if (!IsLatin(c) && !IsCyrillic(c) && c != L'\'') return SwapDecision::Keep();
     }

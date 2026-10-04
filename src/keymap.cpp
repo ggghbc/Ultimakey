@@ -42,7 +42,7 @@ void Keymap::BuildStaticMaps() {
 
         wchar_t upper_e = ToUpper(e);
         wchar_t upper_r = ToUpper(r);
-        if (upper_e != e || upper_r != r) {
+        if (upper_e != e && upper_r != r) {
             static_en_to_ru_.Set(upper_e, upper_r);
             static_ru_to_en_.Set(upper_r, upper_e);
         }

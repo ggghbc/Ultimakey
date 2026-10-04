@@ -432,6 +432,7 @@ bool Settings::Load() {
         for (const auto* w : kDefaults) {
             ignored_words.insert(std::wstring(w));
         }
+        Save();
     }
 
     return true;

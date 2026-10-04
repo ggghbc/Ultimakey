@@ -40,6 +40,20 @@ void HookManager::Uninstall() {
     }
 }
 
+void HookManager::SuspendMouseHook() {
+    if (mouse_hook_) {
+        UnhookWindowsHookEx(mouse_hook_);
+        mouse_hook_ = nullptr;
+    }
+}
+
+void HookManager::ResumeMouseHook() {
+    if (!mouse_hook_) {
+        HINSTANCE hinst = GetModuleHandleW(nullptr);
+        mouse_hook_ = SetWindowsHookExW(WH_MOUSE_LL, LowLevelMouseProc, hinst, 0);
+    }
+}
+
 LRESULT CALLBACK HookManager::LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= 0 && lParam) {
         const auto& kb = *reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);

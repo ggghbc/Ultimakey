@@ -5,6 +5,7 @@
 #include "sound.hpp"
 #include "tray.hpp"
 #include "engine.hpp"
+#include "hook.hpp"
 #include <commctrl.h>
 #include <commdlg.h>
 #include <uxtheme.h>
@@ -341,47 +342,47 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             add_ctrl(CreateWindowExW(0, L"STATIC", L"Совет: если выделить фрагмент текста и нажать горячую клавишу,\nUltimakey изменит раскладку всего выделенного фрагмента.", WS_CHILD, s(25), s(185), s(600), s(40), hwnd, nullptr, hinst, nullptr), 1);
 
             // TAB 2 Controls (Snippets / Text Replacement) - Crystal Clear GroupBoxes
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Сохранённые правила автозамены ", WS_CHILD | BS_GROUPBOX, s(22), s(42), s(625), s(200), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_LIST), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Список активных правил (выберите правило для просмотра или удаления):", WS_CHILD, s(35), s(62), s(470), s(18), hwnd, nullptr, hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(82), s(470), s(148), hwnd, reinterpret_cast<HMENU>(ID_LIST_SNIPPETS), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(520), s(82), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_SNIP), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите правило\nв списке слева,\nчтобы удалить его", WS_CHILD, s(520), s(120), s(115), s(45), hwnd, nullptr, hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Сохранённые правила автозамены ", WS_CHILD | BS_GROUPBOX | WS_CLIPSIBLINGS, s(22), s(42), s(625), s(200), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_LIST), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Список активных правил (выберите правило для просмотра или удаления):", WS_CHILD | WS_CLIPSIBLINGS, s(35), s(62), s(470), s(18), hwnd, nullptr, hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP | WS_CLIPSIBLINGS, s(35), s(82), s(470), s(148), hwnd, reinterpret_cast<HMENU>(ID_LIST_SNIPPETS), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP | WS_CLIPSIBLINGS, s(520), s(82), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_SNIP), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите правило\nв списке слева,\nчтобы удалить его", WS_CHILD | WS_CLIPSIBLINGS, s(520), s(120), s(115), s(45), hwnd, nullptr, hinst, nullptr), 2);
 
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить или изменить правило ", WS_CHILD | BS_GROUPBOX, s(22), s(252), s(625), s(175), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_ADD), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Что вводите (сокращение):", WS_CHILD, s(35), s(272), s(225), s(18), hwnd, nullptr, hinst, nullptr), 2);
-            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(35), s(292), s(225), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_TRIG), hinst, nullptr)), 2);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"На что заменять (полный текст):", WS_CHILD, s(275), s(272), s(230), s(18), hwnd, nullptr, hinst, nullptr), 2);
-            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(275), s(292), s(230), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_EXP), hinst, nullptr)), 2);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(520), s(290), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_SNIP), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Как это работает: при вводе сокращения (например, 'спс') и нажатии пробела\nпрограмма мгновенно заменит его на полный текст ('Спасибо большое!').", WS_CHILD, s(35), s(330), s(600), s(36), hwnd, nullptr, hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить или изменить правило ", WS_CHILD | BS_GROUPBOX | WS_CLIPSIBLINGS, s(22), s(252), s(625), s(175), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_ADD), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Что вводите (сокращение):", WS_CHILD | WS_CLIPSIBLINGS, s(35), s(272), s(225), s(18), hwnd, nullptr, hinst, nullptr), 2);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP | WS_CLIPSIBLINGS, s(35), s(292), s(225), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_TRIG), hinst, nullptr)), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"На что заменять (полный текст):", WS_CHILD | WS_CLIPSIBLINGS, s(275), s(272), s(230), s(18), hwnd, nullptr, hinst, nullptr), 2);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP | WS_CLIPSIBLINGS, s(275), s(292), s(230), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_EXP), hinst, nullptr)), 2);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP | WS_CLIPSIBLINGS, s(520), s(290), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_SNIP), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Как это работает: при вводе сокращения (например, 'спс') и нажатии пробела\nпрограмма мгновенно заменит его на полный текст ('Спасибо большое!').", WS_CHILD | WS_CLIPSIBLINGS, s(35), s(330), s(600), s(36), hwnd, nullptr, hinst, nullptr), 2);
 
             // TAB 3 Controls (Apps Exclusions) - Crystal Clear GroupBoxes
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Программы с особым режимом работы ", WS_CHILD | BS_GROUPBOX, s(22), s(42), s(625), s(200), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_LIST), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Список программ-исключений (выберите для просмотра или удаления):", WS_CHILD, s(35), s(62), s(470), s(18), hwnd, nullptr, hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(82), s(470), s(148), hwnd, reinterpret_cast<HMENU>(ID_LIST_APPS), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(520), s(82), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_APP), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите программу\nв списке слева,\nчтобы удалить её", WS_CHILD, s(520), s(120), s(115), s(45), hwnd, nullptr, hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Программы с особым режимом работы ", WS_CHILD | BS_GROUPBOX | WS_CLIPSIBLINGS, s(22), s(42), s(625), s(200), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_LIST), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Список программ-исключений (выберите для просмотра или удаления):", WS_CHILD | WS_CLIPSIBLINGS, s(35), s(62), s(470), s(18), hwnd, nullptr, hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP | WS_CLIPSIBLINGS, s(35), s(82), s(470), s(148), hwnd, reinterpret_cast<HMENU>(ID_LIST_APPS), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP | WS_CLIPSIBLINGS, s(520), s(82), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_APP), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите программу\nв списке слева,\nчтобы удалить её", WS_CHILD | WS_CLIPSIBLINGS, s(520), s(120), s(115), s(45), hwnd, nullptr, hinst, nullptr), 3);
 
             // TAB 3 Controls (Apps Exclusions - Add Box)
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить программу в исключения ", WS_CHILD | BS_GROUPBOX, s(22), s(252), s(625), s(175), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_ADD), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Выбрать .exe файл...", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(35), s(280), s(165), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_BROWSE_APP), hinst, nullptr), 3);
-            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(210), s(283), s(155), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_APP), hinst, nullptr)), 3);
-            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, s(375), s(283), s(130), s(120), hwnd, reinterpret_cast<HMENU>(ID_COMBO_APP_MODE), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(520), s(280), s(115), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_APP), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Нажмите «Выбрать .exe файл...» для выбора программы через проводник Windows.\n• Мягкий режим: исправляются только длинные слова (от 4 букв).\n• Отключено: автоисправление полностью выключено в этой программе.", WS_CHILD, s(35), s(325), s(600), s(45), hwnd, nullptr, hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить программу в исключения ", WS_CHILD | BS_GROUPBOX | WS_CLIPSIBLINGS, s(22), s(252), s(625), s(175), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_ADD), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Выбрать .exe файл...", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP | WS_CLIPSIBLINGS, s(35), s(280), s(165), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_BROWSE_APP), hinst, nullptr), 3);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP | WS_CLIPSIBLINGS, s(210), s(283), s(155), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_APP), hinst, nullptr)), 3);
+            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP | WS_CLIPSIBLINGS, s(375), s(283), s(130), s(120), hwnd, reinterpret_cast<HMENU>(ID_COMBO_APP_MODE), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP | WS_CLIPSIBLINGS, s(520), s(280), s(115), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_APP), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Нажмите «Выбрать .exe файл...» для выбора программы через проводник Windows.\n• Мягкий режим: исправляются только длинные слова (от 4 букв).\n• Отключено: автоисправление полностью выключено в этой программе.", WS_CHILD | WS_CLIPSIBLINGS, s(35), s(325), s(600), s(45), hwnd, nullptr, hinst, nullptr), 3);
 
             // TAB 4 Controls (Words & Extensions Exclusions)
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Слова и форматы файлов, которые никогда не исправляются ", WS_CHILD | BS_GROUPBOX, s(22), s(42), s(625), s(200), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_LIST), hinst, nullptr), 4);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Список слов-исключений (exe, dll, txt, png, github и др.):", WS_CHILD, s(35), s(62), s(470), s(18), hwnd, nullptr, hinst, nullptr), 4);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(82), s(470), s(148), hwnd, reinterpret_cast<HMENU>(ID_LIST_WORDS), hinst, nullptr), 4);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(520), s(82), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_WORD), hinst, nullptr), 4);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите слово\nв списке слева,\nчтобы удалить его", WS_CHILD, s(520), s(120), s(115), s(45), hwnd, nullptr, hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Слова и форматы файлов, которые никогда не исправляются ", WS_CHILD | BS_GROUPBOX | WS_CLIPSIBLINGS, s(22), s(42), s(625), s(200), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_LIST), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Список слов-исключений (exe, dll, txt, png, github и др.):", WS_CHILD | WS_CLIPSIBLINGS, s(35), s(62), s(470), s(18), hwnd, nullptr, hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP | WS_CLIPSIBLINGS, s(35), s(82), s(470), s(148), hwnd, reinterpret_cast<HMENU>(ID_LIST_WORDS), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP | WS_CLIPSIBLINGS, s(520), s(82), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_WORD), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите слово\nв списке слева,\nчтобы удалить его", WS_CHILD | WS_CLIPSIBLINGS, s(520), s(120), s(115), s(45), hwnd, nullptr, hinst, nullptr), 4);
 
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить слово или расширение в список ", WS_CHILD | BS_GROUPBOX, s(22), s(252), s(625), s(175), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_ADD), hinst, nullptr), 4);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Слово или расширение файла (например, exe или torrent):", WS_CHILD, s(35), s(272), s(470), s(18), hwnd, nullptr, hinst, nullptr), 4);
-            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(35), s(292), s(470), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_WORD), hinst, nullptr)), 4);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(520), s(290), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_WORD), hinst, nullptr), 4);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Любые слова и форматы файлов из этого списка программа никогда не будет\nавтоматически переводить на другую раскладку клавиатуры.", WS_CHILD, s(35), s(330), s(600), s(36), hwnd, nullptr, hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить слово или расширение в список ", WS_CHILD | BS_GROUPBOX | WS_CLIPSIBLINGS, s(22), s(252), s(625), s(175), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_ADD), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Слово или расширение файла (например, exe или torrent):", WS_CHILD | WS_CLIPSIBLINGS, s(35), s(272), s(470), s(18), hwnd, nullptr, hinst, nullptr), 4);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP | WS_CLIPSIBLINGS, s(35), s(292), s(470), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_WORD), hinst, nullptr)), 4);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP | WS_CLIPSIBLINGS, s(520), s(290), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_WORD), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Любые слова и форматы файлов из этого списка программа никогда не будет\nавтоматически переводить на другую раскладку клавиатуры.", WS_CHILD | WS_CLIPSIBLINGS, s(35), s(330), s(600), s(36), hwnd, nullptr, hinst, nullptr), 4);
 
             // Bottom Buttons (always visible)
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"Сохранить", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, s(445), s(472), s(105), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_SAVE), hinst, nullptr), -1);
@@ -622,6 +623,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             return 0;
 
         case WM_DESTROY:
+            HookManager::Instance().ResumeMouseHook();
             g_dialog_hwnd = nullptr;
             g_default_edit_proc = nullptr;
             return 0;
@@ -634,6 +636,8 @@ void SettingsDialog::Show(HWND parent_hwnd, HINSTANCE hinstance) {
         SetForegroundWindow(g_dialog_hwnd);
         return;
     }
+
+    HookManager::Instance().SuspendMouseHook();
 
     INITCOMMONCONTROLSEX icex = {};
     icex.dwSize = sizeof(icex);
@@ -663,7 +667,7 @@ void SettingsDialog::Show(HWND parent_hwnd, HINSTANCE hinstance) {
     }
     if (dpi == 0) dpi = 96;
 
-    DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
+    DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_CLIPCHILDREN;
     DWORD ex_style = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST;
 
     RECT rc = { 0, 0, MulDiv(680, static_cast<int>(dpi), 96), MulDiv(530, static_cast<int>(dpi), 96) };

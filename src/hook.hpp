@@ -11,6 +11,9 @@ public:
     bool Install();
     void Uninstall();
 
+    void SuspendMouseHook();
+    void ResumeMouseHook();
+
     bool IsInstalled() const noexcept { return kb_hook_ != nullptr; }
 
 private:

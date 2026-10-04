@@ -33,7 +33,8 @@ public:
     void OnBoundaryTimer();
     DWORD CurrentForegroundThreadId() const noexcept { return front_tid_; }
     HWND LastForegroundHwnd() const noexcept { return last_fg_hwnd_; }
-    void SetMessageHwnd(HWND hwnd) noexcept { msg_hwnd_ = hwnd; }
+    void SetMessageHwnd(HWND hwnd) noexcept;
+    void OnSyntheticFlightFinished(bool ok);
 
 private:
     Engine();
@@ -44,6 +45,7 @@ private:
 
     bool OnBoundary(int vk, bool command, bool shift);
     bool ConvertBeforeReturn(bool shift);
+    bool CheckRecentSnippet(std::wstring_view ws = {});
     bool CheckSnippet(std::wstring_view word);
     bool CheckTypo(std::wstring_view word);
 

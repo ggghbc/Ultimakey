@@ -221,7 +221,17 @@ std::wstring Keymap::SmartConvert(std::wstring_view word, bool to_cyrillic,
                                   const std::function<bool(std::wstring_view)>& is_valid_target) const {
     if (to_cyrillic && is_valid_target) {
         std::wstring full = Convert(word, true);
-        if (is_valid_target(ToLower(full))) {
+        wchar_t buf[64];
+        std::wstring heap;
+        std::wstring_view lower;
+        if (full.length() < 64) {
+            for (size_t i = 0; i < full.length(); ++i) buf[i] = ToLower(full[i]);
+            lower = std::wstring_view(buf, full.length());
+        } else {
+            heap = ToLower(full);
+            lower = heap;
+        }
+        if (is_valid_target(lower)) {
             return full;
         }
     }

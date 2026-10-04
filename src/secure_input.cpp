@@ -46,13 +46,17 @@ bool SecureInput::IsPasswordFastWin32(HWND fg) noexcept {
 bool SecureInput::CachedIsPassword(HWND fg) const noexcept {
     if (!fg) fg = GetForegroundWindow();
     int64_t now = NowMilliseconds();
-    if (fg && fg == cached_hwnd_ && (now - cached_at_ms_ < 1500)) {
+    if (fg && fg == cached_hwnd_) {
+        if (now - cached_at_ms_ < 1500) return cached_value_;
+        // If window didn't change, stay protected and request fresh UIA check
+        const_cast<SecureInput*>(this)->KickAsync();
         return cached_value_;
     }
     bool is_pass = IsPasswordFastWin32(fg);
     cached_hwnd_ = fg;
     cached_value_ = is_pass;
     cached_at_ms_ = now;
+    const_cast<SecureInput*>(this)->KickAsync();
     return is_pass;
 }
 

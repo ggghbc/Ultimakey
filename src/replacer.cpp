@@ -50,7 +50,9 @@ void TextReplacer::WorkerLoop() {
         PerformReplace(job.delete_count, job.text, job.then_return);
         bool success = true;
 
-        if (job.completion) {
+        if (msg_hwnd_) {
+            PostMessageW(msg_hwnd_, WM_APP + 102, success ? 1 : 0, 0);
+        } else if (job.completion) {
             job.completion(success);
         }
     }
@@ -60,64 +62,66 @@ void TextReplacer::PerformReplace(int delete_count, const std::wstring& text, bo
     // Settle pause (5 ms with timeBeginPeriod(1)) to let target app consume keystrokes
     Sleep(5);
 
-    size_t needed = (static_cast<size_t>(delete_count) + text.length() + (then_return ? 1 : 0)) * 2;
-    if (needed == 0) return;
-
-    INPUT stack_inputs[128];
-    INPUT* inputs = stack_inputs;
-    std::vector<INPUT> heap_inputs;
-    if (needed > 128) {
-        heap_inputs.resize(needed);
-        inputs = heap_inputs.data();
-    }
-
-    size_t idx = 0;
-
     // 1. Backspaces
-    for (int i = 0; i < delete_count; ++i) {
-        INPUT down = {};
-        down.type = INPUT_KEYBOARD;
-        down.ki.wVk = VK_BACK;
-        down.ki.dwExtraInfo = SYNTH_MARKER;
-
-        INPUT up = down;
-        up.ki.dwFlags = KEYEVENTF_KEYUP;
-
-        inputs[idx++] = down;
-        inputs[idx++] = up;
+    if (delete_count > 0) {
+        INPUT back_stack[64];
+        INPUT* back_inputs = back_stack;
+        std::vector<INPUT> back_heap;
+        size_t back_needed = static_cast<size_t>(delete_count) * 2;
+        if (back_needed > 64) {
+            back_heap.resize(back_needed);
+            back_inputs = back_heap.data();
+        }
+        size_t b_idx = 0;
+        for (int i = 0; i < delete_count; ++i) {
+            INPUT down = {};
+            down.type = INPUT_KEYBOARD;
+            down.ki.wVk = VK_BACK;
+            down.ki.dwExtraInfo = SYNTH_MARKER;
+            INPUT up = down;
+            up.ki.dwFlags = KEYEVENTF_KEYUP;
+            back_inputs[b_idx++] = down;
+            back_inputs[b_idx++] = up;
+        }
+        SendInput(static_cast<UINT>(b_idx), back_inputs, sizeof(INPUT));
+        Sleep(4); // Settle pause so target application processes deletion before new text arrives
     }
 
     // 2. Unicode characters
-    for (wchar_t c : text) {
-        INPUT down = {};
-        down.type = INPUT_KEYBOARD;
-        down.ki.wScan = static_cast<WORD>(c);
-        down.ki.dwFlags = KEYEVENTF_UNICODE;
-        down.ki.dwExtraInfo = SYNTH_MARKER;
-
-        INPUT up = down;
-        up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
-
-        inputs[idx++] = down;
-        inputs[idx++] = up;
+    if (!text.empty()) {
+        INPUT text_stack[128];
+        INPUT* text_inputs = text_stack;
+        std::vector<INPUT> text_heap;
+        size_t text_needed = text.length() * 2;
+        if (text_needed > 128) {
+            text_heap.resize(text_needed);
+            text_inputs = text_heap.data();
+        }
+        size_t t_idx = 0;
+        for (wchar_t c : text) {
+            INPUT down = {};
+            down.type = INPUT_KEYBOARD;
+            down.ki.wScan = static_cast<WORD>(c);
+            down.ki.dwFlags = KEYEVENTF_UNICODE;
+            down.ki.dwExtraInfo = SYNTH_MARKER;
+            INPUT up = down;
+            up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+            text_inputs[t_idx++] = down;
+            text_inputs[t_idx++] = up;
+        }
+        SendInput(static_cast<UINT>(t_idx), text_inputs, sizeof(INPUT));
     }
 
     // 3. Return if requested
     if (then_return) {
-        INPUT down = {};
-        down.type = INPUT_KEYBOARD;
-        down.ki.wVk = VK_RETURN;
-        down.ki.dwExtraInfo = SYNTH_MARKER;
-
-        INPUT up = down;
-        up.ki.dwFlags = KEYEVENTF_KEYUP;
-
-        inputs[idx++] = down;
-        inputs[idx++] = up;
-    }
-
-    if (idx > 0) {
-        SendInput(static_cast<UINT>(idx), inputs, sizeof(INPUT));
+        Sleep(3);
+        INPUT ret[2] = {};
+        ret[0].type = INPUT_KEYBOARD;
+        ret[0].ki.wVk = VK_RETURN;
+        ret[0].ki.dwExtraInfo = SYNTH_MARKER;
+        ret[1] = ret[0];
+        ret[1].ki.dwFlags = KEYEVENTF_KEYUP;
+        SendInput(2, ret, sizeof(INPUT));
     }
 }
 

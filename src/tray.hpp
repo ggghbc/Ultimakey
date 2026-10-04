@@ -20,6 +20,7 @@ public:
     void Destroy();
 
     void UpdateState(bool auto_enabled, bool paused);
+    void ShowNotification(const std::wstring& title, const std::wstring& message);
     void ShowContextMenu(HWND hwnd);
 
 private:

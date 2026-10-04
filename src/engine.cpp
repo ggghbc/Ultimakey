@@ -302,6 +302,11 @@ bool Engine::OnKeyDown(int vk, int scan, bool injected) {
     return false;
 }
 
+void Engine::SetMessageHwnd(HWND hwnd) noexcept {
+    msg_hwnd_ = hwnd;
+    TextReplacer::Instance().SetMessageHwnd(hwnd);
+}
+
 wchar_t Engine::DecodeChar(int vk, int scan, bool shift) noexcept {
     HKL hkl = LayoutManager::Instance().CurrentHkl();
     BYTE state[256] = {};
@@ -321,19 +326,28 @@ wchar_t Engine::DecodeChar(int vk, int scan, bool shift) noexcept {
     return 0;
 }
 
-bool Engine::CheckSnippet(std::wstring_view word) {
-    auto exp = SnippetStore::Instance().FindExpansion(word);
-    if (exp.has_value()) {
+bool Engine::CheckRecentSnippet(std::wstring_view ws) {
+    if (muted_) return false;
+    std::wstring recent = buf_.RecentText();
+    auto match = SnippetStore::Instance().FindMatch(recent);
+    if (match.has_value()) {
         SetMuted();
-        Logger::Instance().Write("Snippet: замена триггера");
-        int del = static_cast<int>(word.length());
-        TextReplacer::Instance().Replace(del, *exp, false, [this](bool ok) {
-            EndSyntheticFlight(ok);
-        });
-        buf_.Clear();
+        Logger::Instance().Write("Snippet: автозамена триггера");
+        std::wstring repl = match->expansion;
+        if (!ws.empty()) {
+            if (repl.empty() || (repl.back() != L' ' && repl.back() != L'\t' && repl.back() != L'\n')) {
+                repl.append(ws);
+            }
+        }
+        TextReplacer::Instance().Replace(static_cast<int>(match->trigger_length), repl);
+        buf_.OnSnippetReplaced();
         return true;
     }
     return false;
+}
+
+bool Engine::CheckSnippet(std::wstring_view word) {
+    return CheckRecentSnippet();
 }
 
 bool Engine::CheckTypo(std::wstring_view word) {
@@ -387,9 +401,9 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
 
     std::wstring_view current = buf_.CurrentWord();
 
-    // Check snippets first
-    if (!current.empty() && CheckSnippet(current)) {
-        return false;
+    // Check snippets first (both single-word and multi-word phrases)
+    if (CheckRecentSnippet(ws)) {
+        return true;
     }
 
     // Check typo fix
@@ -404,9 +418,7 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
         if (DoubleSpacePeriod::ShouldTrigger(true, gap, buf_.LastWord())) {
             SetMuted();
             Logger::Instance().Write("DoubleSpace: замена на точку с пробелом");
-            TextReplacer::Instance().Replace(1, L". ", false, [this](bool ok) {
-                EndSyntheticFlight(ok);
-            });
+            TextReplacer::Instance().Replace(1, L". ");
             buf_.ApplyDoubleSpacePeriod();
             return true;
         }
@@ -624,7 +636,7 @@ void Engine::SetMuted() {
     in_flight_real_keys_ = 0;
 }
 
-void Engine::EndSyntheticFlight(bool ok) {
+void Engine::OnSyntheticFlightFinished(bool ok) {
     if (!ok || in_flight_real_keys_ > 0) {
         buf_.Clear();
         in_flight_real_keys_ = 0;
@@ -635,6 +647,10 @@ void Engine::EndSyntheticFlight(bool ok) {
         pending_manual_ = false;
         ConvertFromBuffer(true, false);
     }
+}
+
+void Engine::EndSyntheticFlight(bool ok) {
+    OnSyntheticFlightFinished(ok);
 }
 
 } // namespace Ultimakey

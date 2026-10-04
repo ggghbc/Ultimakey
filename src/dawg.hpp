@@ -71,7 +71,7 @@ public:
                     found = true;
                     break;
                 }
-                if (is_last) break;
+                if (edge_char > cid || is_last) break;
                 edge_idx++;
             }
             if (!found) return false;

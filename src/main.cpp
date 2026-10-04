@@ -23,6 +23,11 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
             break;
         }
 
+        case WM_APP + 102: {
+            Engine::Instance().OnSyntheticFlightFinished(wparam != 0);
+            return 0;
+        }
+
         case TrayIcon::WM_TRAY_CALLBACK: {
             if (lparam == WM_RBUTTONUP) {
                 TrayIcon::Instance().ShowContextMenu(hwnd);

@@ -133,4 +133,23 @@ std::wstring_view KeystrokeBuffer::EarlierContextWord(bool context_for_current) 
     return {};
 }
 
+std::wstring KeystrokeBuffer::RecentText() const {
+    std::wstring result;
+    result.reserve(128);
+    if (session_count_ > 0) {
+        size_t start = (session_head_ + kHistoryCap - session_count_) % kHistoryCap;
+        for (size_t i = 0; i < session_count_; ++i) {
+            size_t idx = (start + i) % kHistoryCap;
+            result.append(session_words_[idx].word);
+            result.append(session_words_[idx].tail);
+        }
+    }
+    result.append(current_word_);
+    return result;
+}
+
+void KeystrokeBuffer::OnSnippetReplaced() noexcept {
+    Clear();
+}
+
 } // namespace Ultimakey

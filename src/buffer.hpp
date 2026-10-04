@@ -42,6 +42,9 @@ public:
     double LastBoundaryTime() const noexcept { return last_boundary_time_; }
     void ApplyDoubleSpacePeriod() noexcept;
 
+    std::wstring RecentText() const;
+    void OnSnippetReplaced() noexcept;
+
     void ClearSessionWords() noexcept {
         session_head_ = 0;
         session_count_ = 0;

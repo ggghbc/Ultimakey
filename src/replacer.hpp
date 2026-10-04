@@ -19,6 +19,7 @@ public:
                  std::function<void(bool)> completion = nullptr);
 
     void Stop();
+    void SetMessageHwnd(HWND hwnd) noexcept { msg_hwnd_ = hwnd; }
 
 private:
     TextReplacer();
@@ -39,6 +40,7 @@ private:
     std::condition_variable cv_;
     std::atomic<bool> running_{true};
     std::thread worker_;
+    HWND msg_hwnd_ = nullptr;
 };
 
 } // namespace Ultimakey

@@ -61,6 +61,16 @@ void TrayIcon::UpdateState(bool auto_enabled, bool paused) {
     Shell_NotifyIconW(NIM_MODIFY, &nid_);
 }
 
+void TrayIcon::ShowNotification(const std::wstring& title, const std::wstring& message) {
+    if (!created_) return;
+    NOTIFYICONDATAW nid = nid_;
+    nid.uFlags |= NIF_INFO;
+    nid.dwInfoFlags = NIIF_INFO;
+    wcsncpy_s(nid.szInfoTitle, title.c_str(), _TRUNCATE);
+    wcsncpy_s(nid.szInfo, message.c_str(), _TRUNCATE);
+    Shell_NotifyIconW(NIM_MODIFY, &nid);
+}
+
 void TrayIcon::ShowContextMenu(HWND hwnd) {
     POINT pt;
     GetCursorPos(&pt);

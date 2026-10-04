@@ -339,7 +339,7 @@ wchar_t Engine::DecodeChar(int vk, int scan, bool shift) noexcept {
 }
 
 bool Engine::CheckRecentSnippet(std::wstring_view ws) {
-    if (muted_) return false;
+    if (muted_ || SnippetStore::Instance().Pairs().empty()) return false;
     std::wstring recent = buf_.RecentText();
     auto match = SnippetStore::Instance().FindMatch(recent);
     if (match.has_value()) {
@@ -425,7 +425,7 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
     }
 
     // Double space to period
-    if (vk == VK_SPACE && s.double_space_period && current.empty() && buf_.LastTail() == L" ") {
+    if (!buf_.LastWord().empty() && vk == VK_SPACE && s.double_space_period && current.empty() && buf_.LastTail() == L" ") {
         double gap = NowSeconds() - buf_.LastBoundaryTime();
         if (DoubleSpacePeriod::ShouldTrigger(true, gap, buf_.LastWord())) {
             SetMuted();

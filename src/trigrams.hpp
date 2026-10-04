@@ -78,14 +78,8 @@ public:
     double Plausibility(std::wstring_view word) const noexcept {
         if (!is_loaded_ || word.empty() || count_ == 0) return 0.0;
 
-        const size_t len = word.length();
-        uint8_t stack_ids[66];
-        uint8_t* ids = stack_ids;
-        std::vector<uint8_t> heap_ids;
-        if (len + 2 > sizeof(stack_ids)) {
-            heap_ids.resize(len + 2);
-            ids = heap_ids.data();
-        }
+        const size_t len = std::min(word.length(), size_t{64});
+        uint8_t ids[66];
 
         ids[0] = space_id_;
         for (size_t i = 0; i < len; ++i) {

@@ -172,6 +172,10 @@ void SecureInput::WorkerLoop() {
             }
             std::lock_guard<std::mutex> lock(mutex_);
             selection_result_ = std::move(res);
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
             current_job_ = JobType::None;
             job_done_ = true;
         }

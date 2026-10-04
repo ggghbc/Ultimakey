@@ -68,15 +68,9 @@ bool LayoutManager::CurrentIsCyrillic() const {
 bool LayoutManager::RequestLayout(HWND hwnd, HKL hkl) {
     if (!hwnd || !hkl) return false;
 
-    DWORD cur_tid = GetCurrentThreadId();
     DWORD target_tid = GetWindowThreadProcessId(hwnd, nullptr);
-    if (target_tid && target_tid != cur_tid) {
-        AttachThreadInput(cur_tid, target_tid, TRUE);
-        ActivateKeyboardLayout(hkl, KLF_SETFORPROCESS);
-        AttachThreadInput(cur_tid, target_tid, FALSE);
-    }
 
-    // Post to top-level window
+    // Post to top-level window (asynchronous, non-blocking)
     PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
 
     // Also post to specific focused child control if available

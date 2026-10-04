@@ -99,6 +99,18 @@ void TextReplacer::PerformReplace(int delete_count, const std::wstring& text, bo
         }
         size_t t_idx = 0;
         for (wchar_t c : text) {
+            if (c == L'\r') continue;
+            if (c == L'\n') {
+                INPUT down = {};
+                down.type = INPUT_KEYBOARD;
+                down.ki.wVk = VK_RETURN;
+                down.ki.dwExtraInfo = SYNTH_MARKER;
+                INPUT up = down;
+                up.ki.dwFlags = KEYEVENTF_KEYUP;
+                text_inputs[t_idx++] = down;
+                text_inputs[t_idx++] = up;
+                continue;
+            }
             INPUT down = {};
             down.type = INPUT_KEYBOARD;
             down.ki.wScan = static_cast<WORD>(c);

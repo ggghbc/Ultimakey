@@ -104,6 +104,7 @@ private:
 
     std::unordered_map<int, int64_t> swallowed_ups_;
     TransparentStringSet session_protected_;
+    int current_modifiers_ = 0;
 };
 
 } // namespace Ultimakey

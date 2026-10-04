@@ -53,7 +53,21 @@ void Settings::SetDefaults() {
         {L"davinci", L"off"}
     };
 
+    static const wchar_t* const kDefaultIgnoredWords[] = {
+        L"exe", L"dll", L"sys", L"com", L"bat", L"cmd", L"msi", L"ps1", L"vbs", L"sh", L"bin", L"iso",
+        L"txt", L"pdf", L"doc", L"docx", L"xls", L"xlsx", L"ppt", L"pptx", L"rtf", L"csv", L"tsv", L"md",
+        L"zip", L"rar", L"7z", L"tar", L"gz", L"bz2", L"xz", L"apk",
+        L"png", L"jpg", L"jpeg", L"gif", L"bmp", L"webp", L"svg", L"ico", L"psd", L"tiff",
+        L"mp3", L"wav", L"flac", L"ogg", L"aac", L"m4a", L"mp4", L"mkv", L"avi", L"mov", L"webm",
+        L"c", L"cpp", L"h", L"hpp", L"cs", L"py", L"js", L"ts", L"rs", L"go", L"java", L"html", L"css",
+        L"json", L"xml", L"yml", L"yaml", L"sql", L"php",
+        L"ini", L"cfg", L"conf", L"log", L"env", L"torrent", L"url", L"lnk"
+    };
+
     ignored_words.clear();
+    for (const auto* w : kDefaultIgnoredWords) {
+        ignored_words.insert(std::wstring(w));
+    }
     learned_words.clear();
     force_swap_words.clear();
     snippets.clear();
@@ -100,7 +114,7 @@ Ultimakey::AppMode Settings::GetAppMode(std::wstring_view process_name) const no
     if (lower.length() > 4 && lower.substr(lower.length() - 4) == L".exe") {
         lower = lower.substr(0, lower.length() - 4);
     }
-    auto it = app_modes.find(std::wstring(lower));
+    auto it = app_modes.find(lower);
     if (it != app_modes.end()) {
         if (it->second == L"soft") return AppMode::Soft;
         if (it->second == L"off") return AppMode::Off;
@@ -402,6 +416,22 @@ bool Settings::Load() {
         }
 
         p.Match(',');
+    }
+
+    if (ignored_words.empty()) {
+        static const wchar_t* const kDefaults[] = {
+            L"exe", L"dll", L"sys", L"com", L"bat", L"cmd", L"msi", L"ps1", L"vbs", L"sh", L"bin", L"iso",
+            L"txt", L"pdf", L"doc", L"docx", L"xls", L"xlsx", L"ppt", L"pptx", L"rtf", L"csv", L"tsv", L"md",
+            L"zip", L"rar", L"7z", L"tar", L"gz", L"bz2", L"xz", L"apk",
+            L"png", L"jpg", L"jpeg", L"gif", L"bmp", L"webp", L"svg", L"ico", L"psd", L"tiff",
+            L"mp3", L"wav", L"flac", L"ogg", L"aac", L"m4a", L"mp4", L"mkv", L"avi", L"mov", L"webm",
+            L"c", L"cpp", L"h", L"hpp", L"cs", L"py", L"js", L"ts", L"rs", L"go", L"java", L"html", L"css",
+            L"json", L"xml", L"yml", L"yaml", L"sql", L"php",
+            L"ini", L"cfg", L"conf", L"log", L"env", L"torrent", L"url", L"lnk"
+        };
+        for (const auto* w : kDefaults) {
+            ignored_words.insert(std::wstring(w));
+        }
     }
 
     return true;

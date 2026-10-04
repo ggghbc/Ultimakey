@@ -46,6 +46,7 @@ target_link_libraries(Ultimakey PRIVATE
     winmm
     advapi32
     uxtheme
+    comdlg32
 )
 
 # Compiler optimization settings (Demoscene / Lean footprint)
@@ -62,6 +63,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -fexec-charset=utf-8
         -ffunction-sections
         -fdata-sections
+        -fno-ident
     )
     target_link_options(Ultimakey PRIVATE
         -mwindows

@@ -170,11 +170,8 @@ void SecureInput::WorkerLoop() {
                 }
                 element->Release();
             }
-            selection_result_ = std::move(res);
-        }
-
-        {
             std::lock_guard<std::mutex> lock(mutex_);
+            selection_result_ = std::move(res);
             current_job_ = JobType::None;
             job_done_ = true;
         }

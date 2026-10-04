@@ -99,6 +99,7 @@ void Engine::OnForegroundChanged(HWND hwnd) {
 
     buf_.Clear();
     session_protected_.clear();
+    current_modifiers_ = 0;
     last_fg_hwnd_ = hwnd;
 
     DWORD pid = 0;
@@ -175,6 +176,21 @@ void Engine::OnMouseHook(int n_code, WPARAM w_param) {
 }
 
 bool Engine::OnKeyUp(int vk) {
+    switch (vk) {
+        case VK_SHIFT:   case VK_LSHIFT:   case VK_RSHIFT:
+            if (!IsKeyDown(VK_SHIFT)) current_modifiers_ &= ~Settings::ModShift;
+            break;
+        case VK_CONTROL: case VK_LCONTROL: case VK_RCONTROL:
+            if (!IsKeyDown(VK_CONTROL)) current_modifiers_ &= ~Settings::ModCtrl;
+            break;
+        case VK_MENU:    case VK_LMENU:    case VK_RMENU:
+            if (!IsKeyDown(VK_MENU)) current_modifiers_ &= ~Settings::ModAlt;
+            break;
+        case VK_LWIN:    case VK_RWIN:
+            if (!IsKeyDown(VK_LWIN) && !IsKeyDown(VK_RWIN)) current_modifiers_ &= ~Settings::ModWin;
+            break;
+    }
+
     auto it = swallowed_ups_.find(vk);
     if (it != swallowed_ups_.end()) {
         swallowed_ups_.erase(it);
@@ -183,22 +199,18 @@ bool Engine::OnKeyUp(int vk) {
     return false;
 }
 
-static int CurrentModifiers() noexcept {
-    int mods = 0;
-    if (IsKeyDown(VK_CONTROL)) mods |= Settings::ModCtrl;
-    if (IsKeyDown(VK_MENU))    mods |= Settings::ModAlt;
-    if (IsKeyDown(VK_SHIFT))   mods |= Settings::ModShift;
-    if (IsKeyDown(VK_LWIN) || IsKeyDown(VK_RWIN)) mods |= Settings::ModWin;
-    return mods;
-}
-
 bool Engine::OnKeyDown(int vk, int scan, bool injected) {
     // Modifier keys alone are not typing events
     switch (vk) {
         case VK_SHIFT:   case VK_LSHIFT:   case VK_RSHIFT:
+            current_modifiers_ |= Settings::ModShift; return false;
         case VK_CONTROL: case VK_LCONTROL: case VK_RCONTROL:
+            current_modifiers_ |= Settings::ModCtrl; return false;
         case VK_MENU:    case VK_LMENU:    case VK_RMENU:
-        case VK_LWIN:    case VK_RWIN:     case 0x90 /*NumLock*/: case 0x91 /*ScrollLock*/:
+            current_modifiers_ |= Settings::ModAlt; return false;
+        case VK_LWIN:    case VK_RWIN:
+            current_modifiers_ |= Settings::ModWin; return false;
+        case 0x90 /*NumLock*/: case 0x91 /*ScrollLock*/:
             return false;
     }
 
@@ -234,15 +246,15 @@ bool Engine::OnKeyDown(int vk, int scan, bool injected) {
         return false;
     }
 
-    bool ctrl = IsKeyDown(VK_CONTROL);
-    bool alt = IsKeyDown(VK_MENU);
-    bool win = IsKeyDown(VK_LWIN) || IsKeyDown(VK_RWIN);
-    bool shift = IsKeyDown(VK_SHIFT);
+    bool ctrl = (current_modifiers_ & Settings::ModCtrl) != 0;
+    bool alt = (current_modifiers_ & Settings::ModAlt) != 0;
+    bool win = (current_modifiers_ & Settings::ModWin) != 0;
+    bool shift = (current_modifiers_ & Settings::ModShift) != 0;
     bool alt_gr = ctrl && alt;
     bool command = (!alt_gr && (ctrl || alt)) || win;
 
     // Manual conversion hotkey
-    if (vk == s.hotkey_vk && CurrentModifiers() == s.hotkey_mods) {
+    if (vk == s.hotkey_vk && current_modifiers_ == s.hotkey_mods) {
         ConvertFromBuffer(true, false);
         swallowed_ups_[vk] = now_ms;
         return true;

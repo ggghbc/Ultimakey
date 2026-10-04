@@ -38,7 +38,17 @@ std::optional<SnippetMatch> SnippetStore::FindMatch(std::wstring_view recent) co
         const size_t tlen = item.trigger.length();
         if (recent.length() < tlen) continue;
 
-        std::wstring_view suffix = recent.substr(recent.length() - tlen);
+        size_t match_pos = recent.length() - tlen;
+        if (match_pos > 0) {
+            wchar_t before = recent[match_pos - 1];
+            wchar_t first_trig = item.trigger[0];
+            if ((IsLatin(first_trig) || IsCyrillic(first_trig) || IsAsciiDigit(first_trig)) &&
+                (IsLatin(before) || IsCyrillic(before) || IsAsciiDigit(before))) {
+                continue; // Часть более длинного слова
+            }
+        }
+
+        std::wstring_view suffix = recent.substr(match_pos);
 
         // 1. Direct case-insensitive match
         if (EqualsIgnoreCase(suffix, item.trigger)) {

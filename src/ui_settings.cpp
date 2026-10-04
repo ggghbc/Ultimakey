@@ -6,8 +6,11 @@
 #include "tray.hpp"
 #include "engine.hpp"
 #include <commctrl.h>
+#include <commdlg.h>
 #include <uxtheme.h>
 #include <vector>
+#include <algorithm>
+#include <cwctype>
 
 namespace Ultimakey {
 
@@ -69,11 +72,21 @@ enum CtrlId {
     ID_GRP_APP_ADD = 503,
     ID_EDIT_APP = 504,
     ID_COMBO_APP_MODE = 505,
-    ID_BTN_ADD_APP = 506
+    ID_BTN_ADD_APP = 506,
+    ID_BTN_BROWSE_APP = 507,
+
+    // Tab 4 - Исключения слов
+    ID_GRP_WORD_LIST = 600,
+    ID_LIST_WORDS = 601,
+    ID_BTN_DEL_WORD = 602,
+    ID_GRP_WORD_ADD = 603,
+    ID_EDIT_WORD = 604,
+    ID_BTN_ADD_WORD = 605
 };
 
 static const struct { int vk; const wchar_t* name; } kHotkeys[] = {
     {VK_PAUSE, L"Pause / Break"},
+    {VK_CAPITAL, L"Caps Lock"},
     {VK_SCROLL, L"Scroll Lock"},
     {VK_F1, L"F1"}, {VK_F2, L"F2"}, {VK_F3, L"F3"}, {VK_F4, L"F4"},
     {VK_F6, L"F6"}, {VK_F7, L"F7"}, {VK_F8, L"F8"}, {VK_F9, L"F9"},
@@ -146,6 +159,17 @@ static void PopulateDialog(HWND hwnd) {
     SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Мягкий режим"));
     SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Отключено"));
     SendMessageW(happ_mode_combo, CB_SETCURSEL, 0, 0);
+
+    // Tab 4 words
+    HWND hwords = GetDlgItem(hwnd, ID_LIST_WORDS);
+    if (hwords) {
+        SendMessageW(hwords, LB_RESETCONTENT, 0, 0);
+        std::vector<std::wstring> sorted_words(s.ignored_words.begin(), s.ignored_words.end());
+        std::sort(sorted_words.begin(), sorted_words.end());
+        for (const auto& w : sorted_words) {
+            SendMessageW(hwords, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str()));
+        }
+    }
 }
 
 static void SaveDialog(HWND hwnd) {
@@ -234,6 +258,8 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             SendMessageW(htab, TCM_INSERTITEMW, 2, reinterpret_cast<LPARAM>(&tie));
             tie.pszText = const_cast<LPWSTR>(L"Исключения программ");
             SendMessageW(htab, TCM_INSERTITEMW, 3, reinterpret_cast<LPARAM>(&tie));
+            tie.pszText = const_cast<LPWSTR>(L"Исключения слов");
+            SendMessageW(htab, TCM_INSERTITEMW, 4, reinterpret_cast<LPARAM>(&tie));
 
             auto add_ctrl = [&](HWND h, int tab_idx) {
                 SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(hfont), TRUE);
@@ -293,12 +319,24 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите программу\nв списке слева,\nчтобы удалить её", WS_CHILD, s(405), s(120), s(110), s(45), hwnd, nullptr, hinst, nullptr), 3);
 
             add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить программу в исключения ", WS_CHILD | BS_GROUPBOX, s(20), s(252), s(505), s(165), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_ADD), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Имя программы (напр., cs2.exe):", WS_CHILD, s(30), s(272), s(180), s(18), hwnd, nullptr, hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(30), s(292), s(180), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_APP), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Режим работы:", WS_CHILD, s(220), s(272), s(175), s(18), hwnd, nullptr, hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, s(220), s(292), s(175), s(120), hwnd, reinterpret_cast<HMENU>(ID_COMBO_APP_MODE), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(405), s(290), s(105), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_APP), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"• Мягкий режим: исправляются только длинные слова (от 4 букв).\n• Отключено: автоисправление полностью выключено в этой программе.", WS_CHILD, s(30), s(330), s(485), s(36), hwnd, nullptr, hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Выбрать .exe файл...", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(30), s(280), s(145), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_BROWSE_APP), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(185), s(283), s(135), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_APP), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, s(330), s(283), s(115), s(120), hwnd, reinterpret_cast<HMENU>(ID_COMBO_APP_MODE), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(455), s(280), s(60), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_APP), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Нажмите «Выбрать .exe файл...» для выбора программы через проводник Windows.\n• Мягкий режим: исправляются только длинные слова (от 4 букв).\n• Отключено: автоисправление полностью выключено в этой программе.", WS_CHILD, s(30), s(325), s(485), s(45), hwnd, nullptr, hinst, nullptr), 3);
+
+            // TAB 4 Controls (Words & Extensions Exclusions)
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Слова и форматы файлов, которые никогда не исправляются ", WS_CHILD | BS_GROUPBOX, s(20), s(42), s(505), s(200), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_LIST), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Список слов-исключений (exe, dll, txt, png, github и др.):", WS_CHILD, s(30), s(62), s(365), s(18), hwnd, nullptr, hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(30), s(82), s(365), s(148), hwnd, reinterpret_cast<HMENU>(ID_LIST_WORDS), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(405), s(82), s(105), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_WORD), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите слово\nв списке слева,\nчтобы удалить его", WS_CHILD, s(405), s(120), s(110), s(45), hwnd, nullptr, hinst, nullptr), 4);
+
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить слово или расширение в список ", WS_CHILD | BS_GROUPBOX, s(20), s(252), s(505), s(165), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_ADD), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Слово или расширение файла (например, exe или torrent):", WS_CHILD, s(30), s(272), s(365), s(18), hwnd, nullptr, hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(30), s(292), s(365), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_WORD), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(405), s(290), s(105), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_WORD), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Любые слова и форматы файлов из этого списка программа никогда не будет\nавтоматически переводить на другую раскладку клавиатуры.", WS_CHILD, s(30), s(330), s(485), s(36), hwnd, nullptr, hinst, nullptr), 4);
 
             // Bottom Buttons (always visible)
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"Сохранить", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, s(325), s(462), s(100), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_SAVE), hinst, nullptr), -1);
@@ -349,6 +387,16 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                         }
                     }
                     return 0;
+                } else if (id == ID_LIST_WORDS) {
+                    HWND hwords = GetDlgItem(hwnd, ID_LIST_WORDS);
+                    int sel = static_cast<int>(SendMessageW(hwords, LB_GETCURSEL, 0, 0));
+                    if (sel >= 0) {
+                        int len = static_cast<int>(SendMessageW(hwords, LB_GETTEXTLEN, sel, 0));
+                        std::vector<wchar_t> text(len + 1);
+                        SendMessageW(hwords, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
+                        SetDlgItemTextW(hwnd, ID_EDIT_WORD, text.data());
+                    }
+                    return 0;
                 }
             } else if (code == LBN_DBLCLK && id == ID_LIST_APPS) {
                 HWND happs = GetDlgItem(hwnd, ID_LIST_APPS);
@@ -366,6 +414,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                             it->second = (it->second == L"off") ? L"soft" : L"off";
                             Settings::Instance().Save();
                             PopulateDialog(hwnd);
+                            SendMessageW(happs, LB_SETCURSEL, sel, 0);
                         }
                     }
                 }
@@ -383,9 +432,9 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 SoundEffect::Instance().PlayTestSound();
                 return 0;
             } else if (id == ID_BTN_ADD_SNIP) {
-                wchar_t trig[128] = {}, exp[512] = {};
+                wchar_t trig[128] = {}, exp[2048] = {};
                 GetDlgItemTextW(hwnd, ID_EDIT_TRIG, trig, 128);
-                GetDlgItemTextW(hwnd, ID_EDIT_EXP, exp, 512);
+                GetDlgItemTextW(hwnd, ID_EDIT_EXP, exp, 2048);
                 if (wcslen(trig) > 0 && wcslen(exp) > 0) {
                     bool found = false;
                     for (auto& [t, e] : Settings::Instance().snippets) {
@@ -418,18 +467,44 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                     SetDlgItemTextW(hwnd, ID_EDIT_TRIG, L"");
                     SetDlgItemTextW(hwnd, ID_EDIT_EXP, L"");
                 }
+            } else if (id == ID_BTN_BROWSE_APP) {
+                wchar_t file_path[MAX_PATH] = {};
+                OPENFILENAMEW ofn = {};
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = hwnd;
+                ofn.lpstrFilter = L"Программы (*.exe)\0*.exe\0Все файлы (*.*)\0*.*\0";
+                ofn.lpstrFile = file_path;
+                ofn.nMaxFile = MAX_PATH;
+                ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+                if (GetOpenFileNameW(&ofn)) {
+                    std::wstring full_path(file_path);
+                    size_t last_slash = full_path.find_last_of(L"\\/");
+                    std::wstring file_name = (last_slash != std::wstring::npos) ? full_path.substr(last_slash + 1) : full_path;
+                    if (file_name.size() > 4 && ToLower(file_name.substr(file_name.size() - 4)) == L".exe") {
+                        file_name = file_name.substr(0, file_name.size() - 4);
+                    }
+                    SetDlgItemTextW(hwnd, ID_EDIT_APP, file_name.c_str());
+                }
+                return 0;
             } else if (id == ID_BTN_ADD_APP) {
                 wchar_t app_name[128] = {};
                 GetDlgItemTextW(hwnd, ID_EDIT_APP, app_name, 128);
                 HWND happ_mode_combo = GetDlgItem(hwnd, ID_COMBO_APP_MODE);
                 int cur_mode_sel = static_cast<int>(SendMessageW(happ_mode_combo, CB_GETCURSEL, 0, 0));
                 const wchar_t* mode_code = (cur_mode_sel == 1) ? L"off" : L"soft";
-                if (wcslen(app_name) > 0) {
-                    Settings::Instance().app_modes[ToLower(app_name)] = mode_code;
+                std::wstring name_str(app_name);
+                while (!name_str.empty() && iswspace(name_str.front())) name_str.erase(0, 1);
+                while (!name_str.empty() && iswspace(name_str.back())) name_str.pop_back();
+                if (name_str.size() > 4 && ToLower(name_str.substr(name_str.size() - 4)) == L".exe") {
+                    name_str = name_str.substr(0, name_str.size() - 4);
+                }
+                if (!name_str.empty()) {
+                    Settings::Instance().app_modes[ToLower(name_str)] = mode_code;
                     Settings::Instance().Save();
                     PopulateDialog(hwnd);
                     SetDlgItemTextW(hwnd, ID_EDIT_APP, L"");
                 }
+                return 0;
             } else if (id == ID_BTN_DEL_APP) {
                 HWND happs = GetDlgItem(hwnd, ID_LIST_APPS);
                 int sel = static_cast<int>(SendMessageW(happs, LB_GETCURSEL, 0, 0));
@@ -447,6 +522,37 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                         SetDlgItemTextW(hwnd, ID_EDIT_APP, L"");
                     }
                 }
+                return 0;
+            } else if (id == ID_BTN_ADD_WORD) {
+                wchar_t word[128] = {};
+                GetDlgItemTextW(hwnd, ID_EDIT_WORD, word, 128);
+                std::wstring w(word);
+                while (!w.empty() && iswspace(w.front())) w.erase(0, 1);
+                while (!w.empty() && iswspace(w.back())) w.pop_back();
+                if (!w.empty() && w.front() == L'.') {
+                    w.erase(0, 1);
+                }
+                if (!w.empty()) {
+                    Settings::Instance().ignored_words.insert(ToLower(w));
+                    Settings::Instance().Save();
+                    PopulateDialog(hwnd);
+                    SetDlgItemTextW(hwnd, ID_EDIT_WORD, L"");
+                }
+                return 0;
+            } else if (id == ID_BTN_DEL_WORD) {
+                HWND hwords = GetDlgItem(hwnd, ID_LIST_WORDS);
+                int sel = static_cast<int>(SendMessageW(hwords, LB_GETCURSEL, 0, 0));
+                if (sel >= 0) {
+                    int len = static_cast<int>(SendMessageW(hwords, LB_GETTEXTLEN, sel, 0));
+                    std::vector<wchar_t> text(len + 1);
+                    SendMessageW(hwords, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
+                    std::wstring word(text.data());
+                    Settings::Instance().ignored_words.erase(ToLower(word));
+                    Settings::Instance().Save();
+                    PopulateDialog(hwnd);
+                    SetDlgItemTextW(hwnd, ID_EDIT_WORD, L"");
+                }
+                return 0;
             }
             break;
         }

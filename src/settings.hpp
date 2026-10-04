@@ -31,7 +31,7 @@ struct Settings {
     bool autostart = false;
     bool write_log = true;
 
-    std::unordered_map<std::wstring, std::wstring> app_modes;
+    std::unordered_map<std::wstring, std::wstring, TransparentStringHash, std::equal_to<>> app_modes;
     TransparentStringSet ignored_words;
     TransparentStringSet learned_words;
     TransparentStringSet force_swap_words;

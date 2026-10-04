@@ -287,6 +287,21 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
             ignored.count(whole) || learned.count(whole)) {
             return SwapDecision::Keep();
         }
+
+        // File extensions (e.g. .exe, file.exe, photo.png)
+        size_t last_dot = raw.rfind(L'.');
+        if (last_dot != std::wstring_view::npos && last_dot + 1 < raw.length()) {
+            std::wstring_view ext_raw = raw.substr(last_dot + 1);
+            StackBuf<32> ext_b;
+            std::wstring_view ext;
+            if (ext_raw.length() < 32) {
+                ext_b.LowerFrom(ext_raw);
+                ext = ext_b.view();
+            }
+            if (!ext.empty() && (ignored.count(ext) || learned.count(ext))) {
+                return SwapDecision::Keep();
+            }
+        }
     }
 
     if (IsEmoticon(raw)) return SwapDecision::Keep();

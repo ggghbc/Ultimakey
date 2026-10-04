@@ -38,6 +38,7 @@ public:
 
         if (offset + count_ * sizeof(uint32_t) > size) return false;
         entries_ = reinterpret_cast<const uint32_t*>(bytes + offset);
+        space_id_ = GetCharId(L' ');
 
         is_loaded_ = true;
         return true;
@@ -86,12 +87,11 @@ public:
             ids = heap_ids.data();
         }
 
-        uint8_t space_id = GetCharId(L' ');
-        ids[0] = space_id;
+        ids[0] = space_id_;
         for (size_t i = 0; i < len; ++i) {
             ids[i + 1] = GetCharId(word[i]);
         }
-        ids[len + 1] = space_id;
+        ids[len + 1] = space_id_;
 
         double total = 0.0;
         for (size_t i = 0; i < len; ++i) {
@@ -108,6 +108,7 @@ private:
     uint32_t count_ = 0;
     const uint32_t* entries_ = nullptr;
     float floor_val_ = -16.0f;
+    uint8_t space_id_ = 0xFF;
     std::array<uint8_t, 128> ascii_map_{};
     std::array<uint8_t, 96> cyr_map_{};
 };

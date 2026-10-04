@@ -27,15 +27,15 @@ struct Settings {
     bool typofix_enabled = true;
     bool double_space_period = true;
     bool caps_remap_enabled = false;
-    bool sound_enabled = false;
+    bool sound_enabled = true;
     bool autostart = false;
     bool write_log = true;
     int launch_count = 0;
 
     std::unordered_map<std::wstring, std::wstring> app_modes;
-    std::unordered_set<std::wstring> ignored_words;
-    std::unordered_set<std::wstring> learned_words;
-    std::unordered_set<std::wstring> force_swap_words;
+    TransparentStringSet ignored_words;
+    TransparentStringSet learned_words;
+    TransparentStringSet force_swap_words;
     std::vector<std::pair<std::wstring, std::wstring>> snippets;
 
     static Settings& Instance();
@@ -43,7 +43,8 @@ struct Settings {
     bool Load();
     bool Save() const;
 
-    std::wstring AppMode(std::wstring_view process_name) const;
+    std::wstring GetAppModeString(std::wstring_view process_name) const;
+    Ultimakey::AppMode GetAppMode(std::wstring_view process_name) const noexcept;
     static std::wstring GetSettingsFilePath();
     static std::wstring GetAppDataDirectory();
 

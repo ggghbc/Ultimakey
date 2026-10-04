@@ -120,6 +120,8 @@ void Engine::OnForegroundChanged(HWND hwnd) {
     } else {
         front_process_ = L"?";
     }
+
+    current_app_mode_ = Settings::Instance().GetAppMode(front_process_);
 }
 
 void Engine::RefreshForeground() {
@@ -226,7 +228,7 @@ bool Engine::OnKeyDown(int vk, int scan, bool injected) {
     }
 
     // Password fields: do not buffer or modify
-    if (SecureInput::Instance().CachedIsPassword()) {
+    if (SecureInput::Instance().CachedIsPassword(last_fg_hwnd_)) {
         SecureInput::Instance().KickAsync();
         buf_.Clear();
         return false;
@@ -338,7 +340,17 @@ bool Engine::CheckTypo(std::wstring_view word) {
     const auto& s = Settings::Instance();
     if (!s.typofix_enabled || word.length() < 3) return false;
 
-    std::wstring lower = ToLower(word);
+    wchar_t lower_buf[64];
+    std::wstring lower_heap;
+    std::wstring_view lower;
+    if (word.length() < 64) {
+        for (size_t i = 0; i < word.length(); ++i) lower_buf[i] = ToLower(word[i]);
+        lower = std::wstring_view(lower_buf, word.length());
+    } else {
+        lower_heap = ToLower(word);
+        lower = lower_heap;
+    }
+
     bool cyr = HasCyrillic(lower);
     if (detector_->WordExistsInSource(lower, cyr)) return false;
 
@@ -368,13 +380,12 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
 
     const auto& s = Settings::Instance();
     std::wstring_view ws = (vk == VK_TAB) ? L"\t" : (vk == VK_RETURN) ? L"\n" : L" ";
-    std::wstring mode = s.AppMode(front_process_);
 
-    if (vk == VK_RETURN && ConvertBeforeReturn(mode, shift)) {
+    if (vk == VK_RETURN && ConvertBeforeReturn(shift)) {
         return true;
     }
 
-    std::wstring current = buf_.CurrentWord();
+    std::wstring_view current = buf_.CurrentWord();
 
     // Check snippets first
     if (!current.empty() && CheckSnippet(current)) {
@@ -400,11 +411,11 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
     if (muted_) in_flight_real_keys_++;
 
     bool auto_trigger = (vk == VK_SPACE && s.trigger_space) || (vk == VK_TAB && s.trigger_tab);
-    if (mode == L"off") auto_trigger = false;
+    if (current_app_mode_ == AppMode::Off) auto_trigger = false;
 
     if (auto_trigger && s.auto_enabled) {
         boundary_fg_ = last_fg_hwnd_;
-        boundary_mode_soft_ = (mode == L"soft");
+        boundary_mode_soft_ = (current_app_mode_ == AppMode::Soft);
         boundary_gen_at_start_ = boundary_gen_.load(std::memory_order_relaxed);
         if (msg_hwnd_) {
             SetTimer(msg_hwnd_, 1001, 20, nullptr);
@@ -421,19 +432,19 @@ void Engine::OnBoundaryTimer() {
     ConvertFromBuffer(false, boundary_mode_soft_);
 }
 
-bool Engine::ConvertBeforeReturn(std::wstring_view mode, bool shift) {
+bool Engine::ConvertBeforeReturn(bool shift) {
     const auto& s = Settings::Instance();
     if (!s.enter_pre_convert || !s.auto_enabled || !s.trigger_enter || muted_) return false;
     if (shift || IsKeyDown(VK_CONTROL) || IsKeyDown(VK_MENU) || IsKeyDown(VK_LWIN) || IsKeyDown(VK_RWIN)) return false;
-    if (mode == L"off") return false;
+    if (current_app_mode_ == AppMode::Off) return false;
 
     std::wstring word = buf_.CurrentWord();
     if (word.empty()) return false;
 
-    auto prop = AutoProposal(word, mode == L"soft", false);
+    auto prop = AutoProposal(word, current_app_mode_ == AppMode::Soft, false);
     if (!prop.has_value()) return false;
     if (!anti_.Allow(word, prop->text)) { buf_.Clear(); return false; }
-    if (SecureInput::Instance().CachedIsPassword()) { buf_.Clear(); return false; }
+    if (SecureInput::Instance().CachedIsPassword(last_fg_hwnd_)) { buf_.Clear(); return false; }
 
     SetMuted();
     Logger::Instance().Write("ConvertBeforeReturn: конверсия перед переводом строки");
@@ -451,7 +462,20 @@ bool Engine::ConvertBeforeReturn(std::wstring_view mode, bool shift) {
 std::optional<Engine::Proposal> Engine::AutoProposal(std::wstring_view word, bool soft, bool completed) {
     Keymap::Instance().RefreshDynamicIfNeeded();
     if (LayoutManager::Instance().CurrentScript() == Script::Other) return std::nullopt;
-    if (session_protected_.count(ToLower(word)) > 0) return std::nullopt;
+
+    if (!session_protected_.empty()) {
+        wchar_t low_buf[64];
+        std::wstring low_heap;
+        std::wstring_view low;
+        if (word.length() < 64) {
+            for (size_t i = 0; i < word.length(); ++i) low_buf[i] = ToLower(word[i]);
+            low = std::wstring_view(low_buf, word.length());
+        } else {
+            low_heap = ToLower(word);
+            low = low_heap;
+        }
+        if (session_protected_.count(low) > 0) return std::nullopt;
+    }
 
     auto rescue = detector_->MixedRescue(word);
     if (rescue.convert) {

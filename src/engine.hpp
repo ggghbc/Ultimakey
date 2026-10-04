@@ -42,7 +42,7 @@ private:
     bool OnKeyUp(int vk);
 
     bool OnBoundary(int vk, bool command, bool shift);
-    bool ConvertBeforeReturn(std::wstring_view mode, bool shift);
+    bool ConvertBeforeReturn(bool shift);
     bool CheckSnippet(std::wstring_view word);
     bool CheckTypo(std::wstring_view word);
 
@@ -97,8 +97,10 @@ private:
     std::atomic<uint32_t> boundary_gen_{0};
     uint32_t boundary_gen_at_start_ = 0;
 
+    AppMode current_app_mode_ = AppMode::Default;
+
     std::unordered_map<int, int64_t> swallowed_ups_;
-    std::unordered_set<std::wstring> session_protected_;
+    TransparentStringSet session_protected_;
 };
 
 } // namespace Ultimakey

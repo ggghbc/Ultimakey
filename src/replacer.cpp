@@ -60,8 +60,18 @@ void TextReplacer::PerformReplace(int delete_count, const std::wstring& text, bo
     // Settle pause (5 ms with timeBeginPeriod(1)) to let target app consume keystrokes
     Sleep(5);
 
-    std::vector<INPUT> inputs;
-    inputs.reserve((delete_count + text.length() + (then_return ? 1 : 0)) * 2);
+    size_t needed = (static_cast<size_t>(delete_count) + text.length() + (then_return ? 1 : 0)) * 2;
+    if (needed == 0) return;
+
+    INPUT stack_inputs[128];
+    INPUT* inputs = stack_inputs;
+    std::vector<INPUT> heap_inputs;
+    if (needed > 128) {
+        heap_inputs.resize(needed);
+        inputs = heap_inputs.data();
+    }
+
+    size_t idx = 0;
 
     // 1. Backspaces
     for (int i = 0; i < delete_count; ++i) {
@@ -73,8 +83,8 @@ void TextReplacer::PerformReplace(int delete_count, const std::wstring& text, bo
         INPUT up = down;
         up.ki.dwFlags = KEYEVENTF_KEYUP;
 
-        inputs.push_back(down);
-        inputs.push_back(up);
+        inputs[idx++] = down;
+        inputs[idx++] = up;
     }
 
     // 2. Unicode characters
@@ -88,8 +98,8 @@ void TextReplacer::PerformReplace(int delete_count, const std::wstring& text, bo
         INPUT up = down;
         up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
 
-        inputs.push_back(down);
-        inputs.push_back(up);
+        inputs[idx++] = down;
+        inputs[idx++] = up;
     }
 
     // 3. Return if requested
@@ -102,12 +112,12 @@ void TextReplacer::PerformReplace(int delete_count, const std::wstring& text, bo
         INPUT up = down;
         up.ki.dwFlags = KEYEVENTF_KEYUP;
 
-        inputs.push_back(down);
-        inputs.push_back(up);
+        inputs[idx++] = down;
+        inputs[idx++] = up;
     }
 
-    if (!inputs.empty()) {
-        SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+    if (idx > 0) {
+        SendInput(static_cast<UINT>(idx), inputs, sizeof(INPUT));
     }
 }
 

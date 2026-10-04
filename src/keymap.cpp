@@ -1,5 +1,4 @@
 #include "keymap.hpp"
-#include <sstream>
 
 namespace Ultimakey {
 
@@ -78,9 +77,7 @@ bool Keymap::BuildDynamicMaps() {
 
     if (!latin_hkl || !cyrillic_hkl) return false;
 
-    std::wstringstream sig;
-    sig << (uintptr_t)latin_hkl << L":" << (uintptr_t)cyrillic_hkl;
-    if (dynamic_ready_ && built_for_signature_ == sig.str()) {
+    if (dynamic_ready_ && cached_latin_hkl_ == latin_hkl && cached_cyrillic_hkl_ == cyrillic_hkl) {
         return true;
     }
 
@@ -122,7 +119,8 @@ bool Keymap::BuildDynamicMaps() {
 
     dynamic_en_to_ru_ = new_en_to_ru;
     dynamic_ru_to_en_ = new_ru_to_en;
-    built_for_signature_ = sig.str();
+    cached_latin_hkl_ = latin_hkl;
+    cached_cyrillic_hkl_ = cyrillic_hkl;
     dynamic_ready_ = has_any;
     return dynamic_ready_;
 }
@@ -229,15 +227,20 @@ std::wstring Keymap::SmartConvert(std::wstring_view word, bool to_cyrillic,
     }
 
     size_t end = word.length();
-    std::wstring trailing;
     while (end > 0 && IsTrailingPunctuation(word[end - 1])) {
-        trailing.insert(trailing.begin(), PeeledMark(word[end - 1], to_cyrillic));
         end--;
     }
 
-    if (end == 0) return std::wstring(word);
+    if (end == word.length()) {
+        return Convert(word, to_cyrillic);
+    }
 
-    return Convert(word.substr(0, end), to_cyrillic) + trailing;
+    std::wstring result = Convert(word.substr(0, end), to_cyrillic);
+    result.reserve(result.length() + (word.length() - end));
+    for (size_t i = end; i < word.length(); ++i) {
+        result.push_back(PeeledMark(word[i], to_cyrillic));
+    }
+    return result;
 }
 
 } // namespace Ultimakey

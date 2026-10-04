@@ -51,11 +51,11 @@ void TrayIcon::UpdateState(bool auto_enabled, bool paused) {
     nid_.hIcon = is_active ? icon_on_ : icon_off_;
 
     if (paused) {
-        wcscpy_s(nid_.szTip, L"Ultimakey (Пауза)");
+        wcscpy_s(nid_.szTip, L"Ultimakey — переключение раскладки (Пауза)");
     } else if (!auto_enabled) {
-        wcscpy_s(nid_.szTip, L"Ultimakey (Автоисправление выключено)");
+        wcscpy_s(nid_.szTip, L"Ultimakey — переключение раскладки (Авторежим выключен)");
     } else {
-        wcscpy_s(nid_.szTip, L"Ultimakey (Активен)");
+        wcscpy_s(nid_.szTip, L"Ultimakey — переключение раскладки (Работает)");
     }
 
     Shell_NotifyIconW(NIM_MODIFY, &nid_);
@@ -72,14 +72,14 @@ void TrayIcon::ShowContextMenu(HWND hwnd) {
     bool paused = Engine::Instance().IsPaused();
 
     AppendMenuW(hmenu, MF_STRING | (s.auto_enabled ? MF_CHECKED : MF_UNCHECKED),
-                IDM_TOGGLE_AUTO, L"Автоматически исправлять раскладку");
+                IDM_TOGGLE_AUTO, L"Автоматическое переключение раскладки");
     AppendMenuW(hmenu, MF_STRING | (paused ? MF_CHECKED : MF_UNCHECKED),
-                IDM_TOGGLE_PAUSE, L"Пауза (ничего не делать)");
+                IDM_TOGGLE_PAUSE, L"Приостановить работу (Пауза)");
     AppendMenuW(hmenu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(hmenu, MF_STRING, IDM_SETTINGS, L"Настройки…");
-    AppendMenuW(hmenu, MF_STRING, IDM_OPEN_LOG, L"Открыть папку с логом");
+    AppendMenuW(hmenu, MF_STRING, IDM_SETTINGS, L"Настройки программы…");
+    AppendMenuW(hmenu, MF_STRING, IDM_OPEN_LOG, L"Показать файл журнала (лога)");
     AppendMenuW(hmenu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(hmenu, MF_STRING, IDM_EXIT, L"Выход");
+    AppendMenuW(hmenu, MF_STRING, IDM_EXIT, L"Выход из программы");
 
     SetForegroundWindow(hwnd);
     TrackPopupMenu(hmenu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, pt.x, pt.y, 0, hwnd, nullptr);

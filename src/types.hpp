@@ -21,7 +21,32 @@
 #include <algorithm>
 #include <chrono>
 
+#include <unordered_set>
+
 namespace Ultimakey {
+
+// Application mode for per-process filtering
+enum class AppMode : uint8_t {
+    Default,
+    Soft,
+    Off
+};
+
+// C++20 Transparent string hash for zero-allocation lookup by wstring_view
+struct TransparentStringHash {
+    using is_transparent = void;
+    size_t operator()(std::wstring_view sv) const noexcept {
+        return std::hash<std::wstring_view>{}(sv);
+    }
+    size_t operator()(const std::wstring& s) const noexcept {
+        return std::hash<std::wstring_view>{}(s);
+    }
+    size_t operator()(const wchar_t* s) const noexcept {
+        return std::hash<std::wstring_view>{}(s);
+    }
+};
+
+using TransparentStringSet = std::unordered_set<std::wstring, TransparentStringHash, std::equal_to<>>;
 
 // Synthetic input marker in KBDLLHOOKSTRUCT::dwExtraInfo ('KBOO')
 inline constexpr uintptr_t SYNTH_MARKER = 0x4B424F4Fu;
@@ -64,6 +89,7 @@ inline wchar_t ToLower(wchar_t c) noexcept {
     if (c >= L'A' && c <= L'Z') return c + (L'a' - L'A');
     if (c >= 0x0410 && c <= 0x042F) return c + 0x20; // Russian А-Я to а-я
     if (c == 0x0401) return 0x0451;                 // Ё to ё
+    if (c < 128) return c;                          // Non-letter ASCII doesn't change
     return towlower(c);
 }
 
@@ -71,6 +97,7 @@ inline wchar_t ToUpper(wchar_t c) noexcept {
     if (c >= L'a' && c <= L'z') return c - (L'a' - L'A');
     if (c >= 0x0430 && c <= 0x044F) return c - 0x20; // Russian а-я to А-Я
     if (c == 0x0451) return 0x0401;                 // ё to Ё
+    if (c < 128) return c;                          // Non-letter ASCII doesn't change
     return towupper(c);
 }
 

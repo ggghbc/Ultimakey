@@ -9,6 +9,7 @@ public:
     static SoundEffect& Instance();
 
     void PlaySwitchSound();
+    void PlayTestSound();
     void SetEnabled(bool enabled) noexcept { enabled_ = enabled; }
     bool IsEnabled() const noexcept { return enabled_; }
 

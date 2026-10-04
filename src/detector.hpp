@@ -30,9 +30,9 @@ public:
                    const TrigramTable& trigrams_ru, const TrigramTable& trigrams_en);
 
     SwapDecision Decide(std::wstring_view raw,
-                        const std::unordered_set<std::wstring>& ignored,
-                        const std::unordered_set<std::wstring>& learned,
-                        const std::unordered_set<std::wstring>& force_swap,
+                        const TransparentStringSet& ignored,
+                        const TransparentStringSet& learned,
+                        const TransparentStringSet& force_swap,
                         std::wstring_view prev = L"",
                         std::wstring_view earlier = L"",
                         bool after_caret_jump = false) const;
@@ -58,7 +58,7 @@ private:
     const TrigramTable& trigrams_en_;
 
     bool HasValidSourceBeforeTrailingPunctuation(std::wstring_view raw_core,
-                                                 const std::unordered_set<std::wstring>& force_swap) const;
+                                                 const TransparentStringSet& force_swap) const;
     bool RussianNJAfterLatinLabel(std::wstring_view word, std::wstring_view raw_core,
                                   std::wstring_view prev, std::wstring_view earlier) const;
 };

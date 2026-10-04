@@ -69,7 +69,8 @@ private:
     CharTable dynamic_en_to_ru_;
     CharTable dynamic_ru_to_en_;
 
-    std::wstring built_for_signature_;
+    HKL cached_latin_hkl_ = nullptr;
+    HKL cached_cyrillic_hkl_ = nullptr;
     bool dynamic_ready_ = false;
 };
 

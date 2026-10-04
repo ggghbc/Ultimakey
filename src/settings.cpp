@@ -28,7 +28,7 @@ void Settings::SetDefaults() {
     typofix_enabled = true;
     double_space_period = true;
     caps_remap_enabled = false;
-    sound_enabled = false;
+    sound_enabled = true;
     autostart = false;
     write_log = true;
     launch_count = 0;
@@ -74,7 +74,7 @@ std::wstring Settings::GetSettingsFilePath() {
     return GetAppDataDirectory() + L"\\settings.json";
 }
 
-std::wstring Settings::AppMode(std::wstring_view process_name) const {
+std::wstring Settings::GetAppModeString(std::wstring_view process_name) const {
     std::wstring lower = ToLower(process_name);
     // Strip .exe if present
     if (lower.length() > 4 && lower.substr(lower.length() - 4) == L".exe") {
@@ -85,6 +85,28 @@ std::wstring Settings::AppMode(std::wstring_view process_name) const {
         return it->second;
     }
     return L"default";
+}
+
+Ultimakey::AppMode Settings::GetAppMode(std::wstring_view process_name) const noexcept {
+    wchar_t buf[64];
+    std::wstring heap;
+    std::wstring_view lower;
+    if (process_name.length() < 64) {
+        for (size_t i = 0; i < process_name.length(); ++i) buf[i] = ToLower(process_name[i]);
+        lower = std::wstring_view(buf, process_name.length());
+    } else {
+        heap = ToLower(process_name);
+        lower = heap;
+    }
+    if (lower.length() > 4 && lower.substr(lower.length() - 4) == L".exe") {
+        lower = lower.substr(0, lower.length() - 4);
+    }
+    auto it = app_modes.find(std::wstring(lower));
+    if (it != app_modes.end()) {
+        if (it->second == L"soft") return AppMode::Soft;
+        if (it->second == L"off") return AppMode::Off;
+    }
+    return AppMode::Default;
 }
 
 // -------------------------------------------------------------

@@ -13,7 +13,7 @@ class SecureInput {
 public:
     static SecureInput& Instance();
 
-    bool CachedIsPassword() const noexcept;
+    bool CachedIsPassword(HWND fg = nullptr) const noexcept;
     void KickAsync();
     bool IsPasswordFocused(int timeout_ms = 80);
 

@@ -9,13 +9,37 @@ LayoutManager& LayoutManager::Instance() {
     return instance;
 }
 
-std::vector<HKL> LayoutManager::InstalledLayouts() const {
+LayoutManager::LayoutManager() {
+    RefreshLayouts();
+}
+
+void LayoutManager::Initialize() {
+    RefreshLayouts();
+}
+
+void LayoutManager::RefreshLayouts() {
     int n = GetKeyboardLayoutList(0, nullptr);
-    if (n <= 0) return {};
-    std::vector<HKL> layouts(n);
-    n = GetKeyboardLayoutList(n, layouts.data());
-    if (n <= 0) return {};
-    layouts.resize(n);
+    if (n <= 0) return;
+    std::array<HKL, 16> temp{};
+    int count = GetKeyboardLayoutList(static_cast<int>(temp.size()), temp.data());
+    layout_count_ = (std::min)(static_cast<size_t>(count), cached_layouts_.size());
+    cached_ru_hkl_ = nullptr;
+    cached_en_hkl_ = nullptr;
+
+    for (size_t i = 0; i < layout_count_; ++i) {
+        cached_layouts_[i] = temp[i];
+        WORD primary = PRIMARYLANGID(LOWORD(temp[i]));
+        if (!cached_ru_hkl_ && primary == LANG_RUSSIAN) cached_ru_hkl_ = temp[i];
+        if (!cached_en_hkl_ && primary == LANG_ENGLISH) cached_en_hkl_ = temp[i];
+    }
+}
+
+std::vector<HKL> LayoutManager::InstalledLayouts() const {
+    std::vector<HKL> layouts;
+    layouts.reserve(layout_count_);
+    for (size_t i = 0; i < layout_count_; ++i) {
+        layouts.push_back(cached_layouts_[i]);
+    }
     return layouts;
 }
 
@@ -59,18 +83,10 @@ bool LayoutManager::RequestLayout(HWND hwnd, HKL hkl) {
 }
 
 bool LayoutManager::SelectLayout(bool cyrillic) {
-    auto all = InstalledLayouts();
-    HKL target = nullptr;
-
-    for (HKL h : all) {
-        WORD primary = PRIMARYLANGID(LOWORD(h));
-        if (cyrillic && primary == LANG_RUSSIAN) {
-            target = h;
-            break;
-        } else if (!cyrillic && primary == LANG_ENGLISH) {
-            target = h;
-            break;
-        }
+    HKL target = cyrillic ? cached_ru_hkl_ : cached_en_hkl_;
+    if (!target) {
+        RefreshLayouts();
+        target = cyrillic ? cached_ru_hkl_ : cached_en_hkl_;
     }
 
     if (!target) return false;
@@ -79,16 +95,21 @@ bool LayoutManager::SelectLayout(bool cyrillic) {
 }
 
 bool LayoutManager::CycleLayout() {
-    auto all = InstalledLayouts();
-    if (all.size() < 2) return false;
+    if (layout_count_ < 2) {
+        RefreshLayouts();
+        if (layout_count_ < 2) return false;
+    }
 
     HKL cur = CurrentHkl();
-    auto it = std::find(all.begin(), all.end(), cur);
     size_t next_idx = 0;
-    if (it != all.end()) {
-        next_idx = (std::distance(all.begin(), it) + 1) % all.size();
+    for (size_t i = 0; i < layout_count_; ++i) {
+        if (cached_layouts_[i] == cur) {
+            next_idx = (i + 1) % layout_count_;
+            break;
+        }
     }
-    HKL target = all[next_idx];
+
+    HKL target = cached_layouts_[next_idx];
     HWND fg = GetForegroundWindow();
     return RequestLayout(fg, target);
 }

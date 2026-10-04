@@ -44,11 +44,30 @@ std::wstring_view LayoutDetector::LetterCore(std::wstring_view raw) noexcept {
 }
 
 std::vector<std::wstring> LayoutDetector::DeElongated(std::wstring_view s) {
+    if (s.length() < 3) return {};
+
+    bool has_elongation = false;
     int run = 0;
     wchar_t prev = 0;
-    bool has_elongation = false;
+    for (wchar_t c : s) {
+        if (prev == c) {
+            if (++run >= 3) {
+                has_elongation = true;
+                break;
+            }
+        } else {
+            run = 1;
+            prev = c;
+        }
+    }
+    if (!has_elongation) return {};
+
     std::wstring to_two;
     std::wstring to_one;
+    to_two.reserve(s.length());
+    to_one.reserve(s.length());
+    run = 0;
+    prev = 0;
 
     for (wchar_t c : s) {
         if (prev == c) {
@@ -57,12 +76,10 @@ std::vector<std::wstring> LayoutDetector::DeElongated(std::wstring_view s) {
             run = 1;
             prev = c;
         }
-        if (run >= 3) has_elongation = true;
         if (run <= 2) to_two.push_back(c);
         if (run == 1) to_one.push_back(c);
     }
 
-    if (!has_elongation) return {};
     if (to_two == to_one) return {to_one};
     return {to_two, to_one};
 }
@@ -166,7 +183,7 @@ struct StackBuf {
 } // namespace
 
 bool LayoutDetector::HasValidSourceBeforeTrailingPunctuation(std::wstring_view raw_core,
-                                                             const std::unordered_set<std::wstring>& force_swap) const {
+                                                             const TransparentStringSet& force_swap) const {
     StackBuf<64> whole_buf;
     std::wstring whole_heap;
     std::wstring_view whole;
@@ -184,7 +201,7 @@ bool LayoutDetector::HasValidSourceBeforeTrailingPunctuation(std::wstring_view r
     bool lat = HasLatin(semantic);
     if (cyr == lat) return false;
 
-    if (Data::IsInForceSwapBuiltin(semantic) || (!force_swap.empty() && force_swap.count(std::wstring(semantic)) > 0)) return true;
+    if (Data::IsInForceSwapBuiltin(semantic) || force_swap.count(semantic) > 0) return true;
     if (lat && Data::IsInTechLatinTokens(semantic)) return true;
     if (lat && Data::IsInForceRuAmb(semantic)) return false;
 
@@ -235,9 +252,9 @@ bool LayoutDetector::RussianNJAfterLatinLabel(std::wstring_view word, std::wstri
 }
 
 SwapDecision LayoutDetector::Decide(std::wstring_view raw,
-                                    const std::unordered_set<std::wstring>& ignored,
-                                    const std::unordered_set<std::wstring>& learned,
-                                    const std::unordered_set<std::wstring>& force_swap,
+                                    const TransparentStringSet& ignored,
+                                    const TransparentStringSet& learned,
+                                    const TransparentStringSet& force_swap,
                                     std::wstring_view prev,
                                     std::wstring_view earlier,
                                     bool after_caret_jump) const {
@@ -245,9 +262,26 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
     std::wstring_view letter_core = LetterCore(raw);
 
     if (!ignored.empty() || !learned.empty()) {
-        std::wstring literal = ToLower(letter_core);
-        std::wstring typed = ToLower(Keymap::Core(letter_core));
-        std::wstring whole = ToLower(raw);
+        StackBuf<64> lit_b, typ_b, who_b;
+        std::wstring lit_h, typ_h, who_h;
+        std::wstring_view literal, typed, whole;
+
+        if (letter_core.length() < 64) {
+            lit_b.LowerFrom(letter_core);
+            literal = lit_b.view();
+        } else { lit_h = ToLower(letter_core); literal = lit_h; }
+
+        std::wstring_view core_v = Keymap::Core(letter_core);
+        if (core_v.length() < 64) {
+            typ_b.LowerFrom(core_v);
+            typed = typ_b.view();
+        } else { typ_h = ToLower(core_v); typed = typ_h; }
+
+        if (raw.length() < 64) {
+            who_b.LowerFrom(raw);
+            whole = who_b.view();
+        } else { who_h = ToLower(raw); whole = who_h; }
+
         if (ignored.count(literal) || learned.count(literal) ||
             ignored.count(typed) || learned.count(typed) ||
             ignored.count(whole) || learned.count(whole)) {
@@ -299,9 +333,7 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
         if (!IsLayoutLetter(c)) return SwapDecision::Keep();
     }
 
-    if ((!ignored.empty() && ignored.count(std::wstring(w))) ||
-        (!learned.empty() && learned.count(std::wstring(w))) ||
-        Data::IsInDefaultKeep(w)) {
+    if (ignored.count(w) || learned.count(w) || Data::IsInDefaultKeep(w)) {
         return SwapDecision::Keep();
     }
 
@@ -357,8 +389,8 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
     }
 
     if (Data::IsInForceSwapBuiltin(swapped) && !source_is_real_word) return SwapDecision::To(to_cyrillic);
-    if (!force_swap.empty() && force_swap.count(std::wstring(swapped)) > 0) return SwapDecision::To(to_cyrillic);
-    if (Data::IsInForceSwapBuiltin(w) || (!force_swap.empty() && force_swap.count(std::wstring(w)) > 0)) return SwapDecision::Keep();
+    if (force_swap.count(swapped) > 0) return SwapDecision::To(to_cyrillic);
+    if (Data::IsInForceSwapBuiltin(w) || force_swap.count(w) > 0) return SwapDecision::Keep();
     if (source_latin && Data::IsInTechLatinTokens(w)) return SwapDecision::Keep();
 
     if (w.length() >= 2 && source_is_real_word && !(source_latin && Data::IsInForceRuAmb(w))) {

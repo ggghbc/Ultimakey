@@ -79,21 +79,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
     // 1. Single-Instance Check
     g_single_instance_mutex = CreateMutexW(nullptr, TRUE, L"Ultimakey_SingleInstance_Mutex");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        HWND prev_wnd = FindWindowW(L"Ultimakey_Hidden_Class", nullptr);
+        if (prev_wnd) {
+            PostMessageW(prev_wnd, WM_COMMAND, MAKEWPARAM(TrayIcon::IDM_SETTINGS, 0), 0);
+        }
         if (g_single_instance_mutex) CloseHandle(g_single_instance_mutex);
         timeEndPeriod(1);
-        return 0; // Already running
+        return 0; // Already running, activated existing instance settings
     }
 
-    // 2. Load Settings & Auto-clean log every 20 launches
+    // 2. Load Settings (zero disk writes on startup)
     Settings::Instance().Load();
-    auto& s = Settings::Instance();
-    s.launch_count++;
-    if (s.launch_count >= 20) {
-        s.launch_count = 0;
-        Logger::Instance().ResetLogFile();
-    }
-    s.Save();
-
     Logger::Instance().Write("Ultimakey: Запуск программы");
 
     // 3. Initialize Engine & Language Data from Resources
@@ -139,9 +135,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
         return 1;
     }
 
-    // 7. Standard Message Loop
+    // 7. Trim cold pages from working set (< 1 MB RAM) and enter Message Loop
+    SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
+
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0)) {
+        HWND dlg = SettingsDialog::GetHwnd();
+        if (dlg && IsDialogMessageW(dlg, &msg)) {
+            continue;
+        }
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }

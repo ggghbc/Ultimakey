@@ -6,12 +6,17 @@
 #include "tray.hpp"
 #include "engine.hpp"
 #include <commctrl.h>
+#include <uxtheme.h>
 #include <vector>
 
 namespace Ultimakey {
 
 static HWND g_dialog_hwnd = nullptr;
 static HFONT g_dialog_font = nullptr;
+
+HWND SettingsDialog::GetHwnd() noexcept {
+    return g_dialog_hwnd;
+}
 
 struct ControlItem {
     HWND hwnd;
@@ -36,9 +41,9 @@ enum CtrlId {
     ID_CHK_DOUBLESPACE,
     ID_CHK_CAPSREMAP,
     ID_CHK_SOUND,
+    ID_BTN_TEST_SOUND,
     ID_CHK_AUTOSTART,
     ID_CHK_LOG,
-    ID_BTN_TEST_SOUND,
 
     // Tab 1 - Горячие клавиши
     ID_LBL_HOTKEY = 301,
@@ -49,18 +54,22 @@ enum CtrlId {
     ID_CHK_WIN,
 
     // Tab 2 - Автозамена текста
+    ID_GRP_SNIP_LIST = 400,
     ID_LIST_SNIPPETS = 401,
-    ID_EDIT_TRIG,
-    ID_EDIT_EXP,
-    ID_BTN_ADD_SNIP,
-    ID_BTN_DEL_SNIP,
+    ID_BTN_DEL_SNIP = 402,
+    ID_GRP_SNIP_ADD = 403,
+    ID_EDIT_TRIG = 404,
+    ID_EDIT_EXP = 405,
+    ID_BTN_ADD_SNIP = 406,
 
     // Tab 3 - Исключения программ
+    ID_GRP_APP_LIST = 500,
     ID_LIST_APPS = 501,
-    ID_EDIT_APP,
-    ID_COMBO_APP_MODE,
-    ID_BTN_ADD_APP,
-    ID_BTN_DEL_APP
+    ID_BTN_DEL_APP = 502,
+    ID_GRP_APP_ADD = 503,
+    ID_EDIT_APP = 504,
+    ID_COMBO_APP_MODE = 505,
+    ID_BTN_ADD_APP = 506
 };
 
 static const struct { int vk; const wchar_t* name; } kHotkeys[] = {
@@ -134,7 +143,7 @@ static void PopulateDialog(HWND hwnd) {
 
     HWND happ_mode_combo = GetDlgItem(hwnd, ID_COMBO_APP_MODE);
     SendMessageW(happ_mode_combo, CB_RESETCONTENT, 0, 0);
-    SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Мягкий"));
+    SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Мягкий режим"));
     SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Отключено"));
     SendMessageW(happ_mode_combo, CB_SETCURSEL, 0, 0);
 }
@@ -178,8 +187,24 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     switch (msg) {
         case WM_CREATE: {
             HINSTANCE hinst = reinterpret_cast<LPCREATESTRUCT>(lparam)->hInstance;
+
+            // PerMonitorV2 DPI
+            UINT dpi = 96;
+            HMODULE u32 = GetModuleHandleW(L"user32.dll");
+            auto pGetDpiForWindow = reinterpret_cast<UINT(WINAPI*)(HWND)>(reinterpret_cast<void*>(GetProcAddress(u32, "GetDpiForWindow")));
+            if (pGetDpiForWindow) {
+                dpi = pGetDpiForWindow(hwnd);
+            } else {
+                HDC hdc = GetDC(hwnd);
+                dpi = GetDeviceCaps(hdc, LOGPIXELSY);
+                ReleaseDC(hwnd, hdc);
+            }
+            if (dpi == 0) dpi = 96;
+
+            auto s = [dpi](int val) { return MulDiv(val, static_cast<int>(dpi), 96); };
+
             if (!g_dialog_font) {
-                g_dialog_font = CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                g_dialog_font = CreateFontW(s(-12), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                                             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                             CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
                 if (!g_dialog_font) {
@@ -188,12 +213,14 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             }
             HFONT hfont = g_dialog_font;
 
+            EnableThemeDialogTexture(hwnd, ETDT_ENABLETAB);
+
             g_controls.clear();
 
             // Tab Control
             HWND htab = CreateWindowExW(0, WC_TABCONTROLW, L"",
                                         WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
-                                        10, 10, 480, 365, hwnd, reinterpret_cast<HMENU>(ID_TAB), hinst, nullptr);
+                                        s(10), s(10), s(525), s(440), hwnd, reinterpret_cast<HMENU>(ID_TAB), hinst, nullptr);
             SendMessageW(htab, WM_SETFONT, reinterpret_cast<WPARAM>(hfont), TRUE);
 
             TCITEMW tie = {};
@@ -214,57 +241,67 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             };
 
             // TAB 0 Controls
-            int y = 45;
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Автоматически исправлять неверную раскладку", WS_CHILD | BS_AUTOCHECKBOX, 25, y, 420, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_AUTO), hinst, nullptr), 0); y += 23;
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"  • При нажатии Пробела", WS_CHILD | BS_AUTOCHECKBOX, 45, y, 400, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_SPACE), hinst, nullptr), 0); y += 21;
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"  • При нажатии Enter", WS_CHILD | BS_AUTOCHECKBOX, 45, y, 400, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_ENTER), hinst, nullptr), 0); y += 21;
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"  • При нажатии Tab", WS_CHILD | BS_AUTOCHECKBOX, 45, y, 400, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_TAB), hinst, nullptr), 0); y += 24;
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Отменять исправление при перемещении стрелками", WS_CHILD | BS_AUTOCHECKBOX, 25, y, 420, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_ARROWS), hinst, nullptr), 0); y += 23;
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Автоматически исправлять частые опечатки", WS_CHILD | BS_AUTOCHECKBOX, 25, y, 420, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_TYPO), hinst, nullptr), 0); y += 23;
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Двойной пробел заменять на точку и пробел (. )", WS_CHILD | BS_AUTOCHECKBOX, 25, y, 420, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_DOUBLESPACE), hinst, nullptr), 0); y += 23;
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Клавиша CapsLock переключает раскладку (без фиксации)", WS_CHILD | BS_AUTOCHECKBOX, 25, y, 420, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_CAPSREMAP), hinst, nullptr), 0); y += 23;
+            int y = s(42);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Автоматически исправлять неверную раскладку", WS_CHILD | BS_AUTOCHECKBOX, s(25), y, s(420), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_AUTO), hinst, nullptr), 0); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"  • При нажатии Пробела", WS_CHILD | BS_AUTOCHECKBOX, s(45), y, s(400), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_SPACE), hinst, nullptr), 0); y += s(20);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"  • При нажатии Enter", WS_CHILD | BS_AUTOCHECKBOX, s(45), y, s(400), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_ENTER), hinst, nullptr), 0); y += s(20);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"  • При нажатии Tab", WS_CHILD | BS_AUTOCHECKBOX, s(45), y, s(400), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_TAB), hinst, nullptr), 0); y += s(23);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Отменять исправление при перемещении стрелками", WS_CHILD | BS_AUTOCHECKBOX, s(25), y, s(420), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_ARROWS), hinst, nullptr), 0); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Автоматически исправлять частые опечатки", WS_CHILD | BS_AUTOCHECKBOX, s(25), y, s(420), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_TYPO), hinst, nullptr), 0); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Двойной пробел заменять на точку и пробел (. )", WS_CHILD | BS_AUTOCHECKBOX, s(25), y, s(420), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_DOUBLESPACE), hinst, nullptr), 0); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Клавиша CapsLock переключает раскладку (без фиксации)", WS_CHILD | BS_AUTOCHECKBOX, s(25), y, s(420), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_CAPSREMAP), hinst, nullptr), 0); y += s(22);
 
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Звуковой щелчок при исправлении слова", WS_CHILD | BS_AUTOCHECKBOX, 25, y, 310, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_SOUND), hinst, nullptr), 0);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Прослушать", WS_CHILD, 345, y - 2, 110, 23, hwnd, reinterpret_cast<HMENU>(ID_BTN_TEST_SOUND), hinst, nullptr), 0);
-            y += 25;
+            // Sound: checkbox + compact play icon button
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Звуковой щелчок при исправлении слова", WS_CHILD | BS_AUTOCHECKBOX, s(25), y, s(315), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_SOUND), hinst, nullptr), 0);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"▶", WS_CHILD | BS_PUSHBUTTON, s(345), y - s(1), s(30), s(22), hwnd, reinterpret_cast<HMENU>(ID_BTN_TEST_SOUND), hinst, nullptr), 0);
+            y += s(24);
 
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Запускать Ultimakey при входе в Windows", WS_CHILD | BS_AUTOCHECKBOX, 25, y, 420, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_AUTOSTART), hinst, nullptr), 0); y += 23;
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Вести журнал работы программы для отладки", WS_CHILD | BS_AUTOCHECKBOX, 25, y, 420, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_LOG), hinst, nullptr), 0);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Запускать Ultimakey при входе в Windows", WS_CHILD | BS_AUTOCHECKBOX, s(25), y, s(420), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_AUTOSTART), hinst, nullptr), 0); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Вести журнал работы программы для отладки", WS_CHILD | BS_AUTOCHECKBOX, s(25), y, s(420), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_LOG), hinst, nullptr), 0);
 
             // TAB 1 Controls (Hotkeys)
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Клавиша для смены языка слова или выделенного текста:", WS_CHILD, 25, 50, 440, 20, hwnd, reinterpret_cast<HMENU>(ID_LBL_HOTKEY), hinst, nullptr), 1);
-            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, 25, 75, 220, 200, hwnd, reinterpret_cast<HMENU>(ID_COMBO_HOTKEY), hinst, nullptr), 1);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Дополнительные клавиши-модификаторы:", WS_CHILD, 25, 115, 440, 20, hwnd, nullptr, hinst, nullptr), 1);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Ctrl", WS_CHILD | BS_AUTOCHECKBOX, 25, 140, 75, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_CTRL), hinst, nullptr), 1);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Alt", WS_CHILD | BS_AUTOCHECKBOX, 105, 140, 75, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_ALT), hinst, nullptr), 1);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Shift", WS_CHILD | BS_AUTOCHECKBOX, 185, 140, 75, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_SHIFT), hinst, nullptr), 1);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Win", WS_CHILD | BS_AUTOCHECKBOX, 265, 140, 75, 20, hwnd, reinterpret_cast<HMENU>(ID_CHK_WIN), hinst, nullptr), 1);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Совет: если выделить фрагмент текста и нажать горячую клавишу,\nUltimakey изменит раскладку всего выделенного фрагмента.", WS_CHILD, 25, 180, 440, 40, hwnd, nullptr, hinst, nullptr), 1);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Клавиша для смены языка слова или выделенного текста:", WS_CHILD, s(25), s(50), s(480), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_HOTKEY), hinst, nullptr), 1);
+            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, s(25), s(75), s(220), s(200), hwnd, reinterpret_cast<HMENU>(ID_COMBO_HOTKEY), hinst, nullptr), 1);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Дополнительные клавиши-модификаторы:", WS_CHILD, s(25), s(115), s(480), s(20), hwnd, nullptr, hinst, nullptr), 1);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Ctrl", WS_CHILD | BS_AUTOCHECKBOX, s(25), s(140), s(75), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_CTRL), hinst, nullptr), 1);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Alt", WS_CHILD | BS_AUTOCHECKBOX, s(110), s(140), s(75), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_ALT), hinst, nullptr), 1);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Shift", WS_CHILD | BS_AUTOCHECKBOX, s(195), s(140), s(75), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_SHIFT), hinst, nullptr), 1);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Win", WS_CHILD | BS_AUTOCHECKBOX, s(280), s(140), s(75), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_WIN), hinst, nullptr), 1);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Совет: если выделить фрагмент текста и нажать горячую клавишу,\nUltimakey изменит раскладку всего выделенного фрагмента.", WS_CHILD, s(25), s(185), s(480), s(40), hwnd, nullptr, hinst, nullptr), 1);
 
-            // TAB 2 Controls (Snippets / Text Replacement)
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Сокращения для быстрой вставки готового текста при наборе:", WS_CHILD, 25, 45, 440, 20, hwnd, nullptr, hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL, 25, 70, 440, 190, hwnd, reinterpret_cast<HMENU>(ID_LIST_SNIPPETS), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Сокращение (напр., 'спс'):", WS_CHILD, 25, 270, 160, 18, hwnd, nullptr, hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Полный текст:", WS_CHILD, 195, 270, 160, 18, hwnd, nullptr, hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL, 25, 290, 160, 23, hwnd, reinterpret_cast<HMENU>(ID_EDIT_TRIG), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL, 195, 290, 160, 23, hwnd, reinterpret_cast<HMENU>(ID_EDIT_EXP), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD, 365, 289, 100, 24, hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_SNIP), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD, 365, 320, 100, 24, hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_SNIP), hinst, nullptr), 2);
+            // TAB 2 Controls (Snippets / Text Replacement) - Crystal Clear GroupBoxes
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Сохранённые правила автозамены ", WS_CHILD | BS_GROUPBOX, s(20), s(42), s(505), s(200), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_LIST), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Список активных правил (выберите правило для просмотра или удаления):", WS_CHILD, s(30), s(62), s(365), s(18), hwnd, nullptr, hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL, s(30), s(82), s(365), s(148), hwnd, reinterpret_cast<HMENU>(ID_LIST_SNIPPETS), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD, s(405), s(82), s(105), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_SNIP), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите правило\nв списке слева,\nчтобы удалить его", WS_CHILD, s(405), s(120), s(110), s(45), hwnd, nullptr, hinst, nullptr), 2);
 
-            // TAB 3 Controls (Apps Exclusions)
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Настройка работы в отдельных программах (играх, терминалах и т.д.):", WS_CHILD, 25, 45, 440, 20, hwnd, nullptr, hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL, 25, 70, 440, 190, hwnd, reinterpret_cast<HMENU>(ID_LIST_APPS), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Имя процесса (например, game.exe):", WS_CHILD, 25, 270, 200, 18, hwnd, nullptr, hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Режим:", WS_CHILD, 235, 270, 120, 18, hwnd, nullptr, hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL, 25, 290, 200, 23, hwnd, reinterpret_cast<HMENU>(ID_EDIT_APP), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, 235, 290, 120, 100, hwnd, reinterpret_cast<HMENU>(ID_COMBO_APP_MODE), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD, 365, 289, 100, 24, hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_APP), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD, 365, 320, 100, 24, hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_APP), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"Мягкий режим: исправляются только длинные слова (от 4 букв).\nОтключено: автоматическое переключение для программы выключено.", WS_CHILD, 25, 320, 335, 36, hwnd, nullptr, hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить или изменить правило ", WS_CHILD | BS_GROUPBOX, s(20), s(252), s(505), s(165), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_ADD), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Что вводите (сокращение):", WS_CHILD, s(30), s(272), s(175), s(18), hwnd, nullptr, hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL, s(30), s(292), s(175), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_TRIG), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"На что заменять (полный текст):", WS_CHILD, s(215), s(272), s(180), s(18), hwnd, nullptr, hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL, s(215), s(292), s(180), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_EXP), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD, s(405), s(290), s(105), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_SNIP), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Как это работает: при вводе сокращения (например, 'спс') и нажатии пробела\nпрограмма мгновенно заменит его на полный текст ('Спасибо большое!').", WS_CHILD, s(30), s(330), s(485), s(36), hwnd, nullptr, hinst, nullptr), 2);
+
+            // TAB 3 Controls (Apps Exclusions) - Crystal Clear GroupBoxes
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Программы с особым режимом работы ", WS_CHILD | BS_GROUPBOX, s(20), s(42), s(505), s(200), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_LIST), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Список программ-исключений (выберите для просмотра или удаления):", WS_CHILD, s(30), s(62), s(365), s(18), hwnd, nullptr, hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL, s(30), s(82), s(365), s(148), hwnd, reinterpret_cast<HMENU>(ID_LIST_APPS), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Удалить", WS_CHILD, s(405), s(82), s(105), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_APP), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Выберите программу\nв списке слева,\nчтобы удалить её", WS_CHILD, s(405), s(120), s(110), s(45), hwnd, nullptr, hinst, nullptr), 3);
+
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L" Добавить программу в исключения ", WS_CHILD | BS_GROUPBOX, s(20), s(252), s(505), s(165), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_ADD), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Имя программы (напр., cs2.exe):", WS_CHILD, s(30), s(272), s(180), s(18), hwnd, nullptr, hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL, s(30), s(292), s(180), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_APP), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"Режим работы:", WS_CHILD, s(220), s(272), s(175), s(18), hwnd, nullptr, hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, s(220), s(292), s(175), s(120), hwnd, reinterpret_cast<HMENU>(ID_COMBO_APP_MODE), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Добавить", WS_CHILD, s(405), s(290), s(105), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_APP), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"• Мягкий режим: исправляются только длинные слова (от 4 букв).\n• Отключено: автоисправление полностью выключено в этой программе.", WS_CHILD, s(30), s(330), s(485), s(36), hwnd, nullptr, hinst, nullptr), 3);
 
             // Bottom Buttons (always visible)
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Сохранить", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON, 290, 385, 95, 28, hwnd, reinterpret_cast<HMENU>(ID_BTN_SAVE), hinst, nullptr), -1);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Отмена", WS_CHILD | WS_VISIBLE, 395, 385, 95, 28, hwnd, reinterpret_cast<HMENU>(ID_BTN_CANCEL), hinst, nullptr), -1);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Сохранить", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON, s(325), s(462), s(100), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_SAVE), hinst, nullptr), -1);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"Отмена", WS_CHILD | WS_VISIBLE, s(435), s(462), s(100), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_CANCEL), hinst, nullptr), -1);
 
             PopulateDialog(hwnd);
             SwitchTab(0);
@@ -282,12 +319,43 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
         case WM_COMMAND: {
             int id = LOWORD(wparam);
+            int code = HIWORD(wparam);
+
+            if (code == LBN_SELCHANGE) {
+                if (id == ID_LIST_SNIPPETS) {
+                    HWND hsnip = GetDlgItem(hwnd, ID_LIST_SNIPPETS);
+                    int sel = static_cast<int>(SendMessageW(hsnip, LB_GETCURSEL, 0, 0));
+                    if (sel >= 0 && sel < static_cast<int>(Settings::Instance().snippets.size())) {
+                        const auto& [trig, exp] = Settings::Instance().snippets[sel];
+                        SetDlgItemTextW(hwnd, ID_EDIT_TRIG, trig.c_str());
+                        SetDlgItemTextW(hwnd, ID_EDIT_EXP, exp.c_str());
+                    }
+                    return 0;
+                } else if (id == ID_LIST_APPS) {
+                    HWND happs = GetDlgItem(hwnd, ID_LIST_APPS);
+                    int sel = static_cast<int>(SendMessageW(happs, LB_GETCURSEL, 0, 0));
+                    if (sel >= 0) {
+                        int len = static_cast<int>(SendMessageW(happs, LB_GETTEXTLEN, sel, 0));
+                        std::vector<wchar_t> text(len + 1);
+                        SendMessageW(happs, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
+                        std::wstring full(text.data());
+                        size_t sp = full.rfind(L"  [");
+                        if (sp != std::wstring::npos) {
+                            std::wstring app_key = full.substr(0, sp);
+                            SetDlgItemTextW(hwnd, ID_EDIT_APP, app_key.c_str());
+                            bool is_off = (full.find(L"[Отключено]") != std::wstring::npos);
+                            SendMessageW(GetDlgItem(hwnd, ID_COMBO_APP_MODE), CB_SETCURSEL, is_off ? 1 : 0, 0);
+                        }
+                    }
+                    return 0;
+                }
+            }
 
             if (id == ID_BTN_SAVE) {
                 SaveDialog(hwnd);
                 DestroyWindow(hwnd);
                 return 0;
-            } else if (id == ID_BTN_CANCEL) {
+            } else if (id == ID_BTN_CANCEL || id == 2 /*IDCANCEL*/) {
                 DestroyWindow(hwnd);
                 return 0;
             } else if (id == ID_BTN_TEST_SOUND) {
@@ -298,7 +366,17 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 GetDlgItemTextW(hwnd, ID_EDIT_TRIG, trig, 128);
                 GetDlgItemTextW(hwnd, ID_EDIT_EXP, exp, 512);
                 if (wcslen(trig) > 0 && wcslen(exp) > 0) {
-                    Settings::Instance().snippets.emplace_back(trig, exp);
+                    bool found = false;
+                    for (auto& [t, e] : Settings::Instance().snippets) {
+                        if (t == trig) {
+                            e = exp;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        Settings::Instance().snippets.emplace_back(trig, exp);
+                    }
                     PopulateDialog(hwnd);
                     SetDlgItemTextW(hwnd, ID_EDIT_TRIG, L"");
                     SetDlgItemTextW(hwnd, ID_EDIT_EXP, L"");
@@ -309,6 +387,8 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 if (sel >= 0 && sel < static_cast<int>(Settings::Instance().snippets.size())) {
                     Settings::Instance().snippets.erase(Settings::Instance().snippets.begin() + sel);
                     PopulateDialog(hwnd);
+                    SetDlgItemTextW(hwnd, ID_EDIT_TRIG, L"");
+                    SetDlgItemTextW(hwnd, ID_EDIT_EXP, L"");
                 }
             } else if (id == ID_BTN_ADD_APP) {
                 wchar_t app_name[128] = {};
@@ -329,16 +409,24 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                     std::vector<wchar_t> text(len + 1);
                     SendMessageW(happs, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
                     std::wstring full(text.data());
-                    size_t sp = full.find(L" ");
+                    size_t sp = full.rfind(L"  [");
                     if (sp != std::wstring::npos) {
                         std::wstring app_key = full.substr(0, sp);
-                        Settings::Instance().app_modes.erase(app_key);
+                        Settings::Instance().app_modes.erase(ToLower(app_key));
                         PopulateDialog(hwnd);
+                        SetDlgItemTextW(hwnd, ID_EDIT_APP, L"");
                     }
                 }
             }
             break;
         }
+
+        case WM_KEYDOWN:
+            if (wparam == VK_ESCAPE) {
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            break;
 
         case WM_CLOSE:
             DestroyWindow(hwnd);
@@ -373,11 +461,22 @@ void SettingsDialog::Show(HWND parent_hwnd, HINSTANCE hinstance) {
     wc.lpszClassName = kClassName;
     RegisterClassExW(&wc);
 
-    // Center on screen
+    UINT dpi = 96;
+    HMODULE u32 = GetModuleHandleW(L"user32.dll");
+    auto pGetDpiForSystem = reinterpret_cast<UINT(WINAPI*)()>(reinterpret_cast<void*>(GetProcAddress(u32, "GetDpiForSystem")));
+    if (pGetDpiForSystem) {
+        dpi = pGetDpiForSystem();
+    } else {
+        HDC hdc = GetDC(nullptr);
+        dpi = GetDeviceCaps(hdc, LOGPIXELSY);
+        ReleaseDC(nullptr, hdc);
+    }
+    if (dpi == 0) dpi = 96;
+
+    int win_w = MulDiv(560, static_cast<int>(dpi), 96);
+    int win_h = MulDiv(545, static_cast<int>(dpi), 96);
     int screen_w = GetSystemMetrics(SM_CXSCREEN);
     int screen_h = GetSystemMetrics(SM_CYSCREEN);
-    int win_w = 515;
-    int win_h = 465;
     int win_x = (screen_w - win_w) / 2;
     int win_y = (screen_h - win_h) / 2;
 

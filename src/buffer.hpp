@@ -39,6 +39,8 @@ public:
 
     double CurrentWordGap() const noexcept { return current_word_gap_; }
     double LastWordGap() const noexcept { return last_word_gap_; }
+    double LastBoundaryTime() const noexcept { return last_boundary_time_; }
+    void ApplyDoubleSpacePeriod() noexcept;
 
     void ClearSessionWords() noexcept {
         session_head_ = 0;
@@ -61,6 +63,7 @@ private:
 
     double current_word_gap_ = 0.0;
     double last_word_gap_ = 0.0;
+    double last_boundary_time_ = 0.0;
     double last_activity_ = 0.0;
 };
 

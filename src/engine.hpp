@@ -32,6 +32,7 @@ public:
     void OnForegroundChanged(HWND hwnd);
     void OnBoundaryTimer();
     DWORD CurrentForegroundThreadId() const noexcept { return front_tid_; }
+    HWND LastForegroundHwnd() const noexcept { return last_fg_hwnd_; }
     void SetMessageHwnd(HWND hwnd) noexcept { msg_hwnd_ = hwnd; }
 
 private:

@@ -399,11 +399,16 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
     }
 
     // Double space to period
-    if (vk == VK_SPACE && s.double_space_period) {
-        double gap = NowSeconds() - buf_.LastWordGap();
+    if (vk == VK_SPACE && s.double_space_period && current.empty() && buf_.LastTail() == L" ") {
+        double gap = NowSeconds() - buf_.LastBoundaryTime();
         if (DoubleSpacePeriod::ShouldTrigger(true, gap, buf_.LastWord())) {
-            // Convert last space to period and space
-            TextReplacer::Instance().Replace(1, L". ");
+            SetMuted();
+            Logger::Instance().Write("DoubleSpace: замена на точку с пробелом");
+            TextReplacer::Instance().Replace(1, L". ", false, [this](bool ok) {
+                EndSyntheticFlight(ok);
+            });
+            buf_.ApplyDoubleSpacePeriod();
+            return true;
         }
     }
 

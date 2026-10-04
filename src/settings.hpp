@@ -30,7 +30,6 @@ struct Settings {
     bool sound_enabled = true;
     bool autostart = false;
     bool write_log = true;
-    int launch_count = 0;
 
     std::unordered_map<std::wstring, std::wstring> app_modes;
     TransparentStringSet ignored_words;

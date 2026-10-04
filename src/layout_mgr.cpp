@@ -90,7 +90,8 @@ bool LayoutManager::SelectLayout(bool cyrillic) {
     }
 
     if (!target) return false;
-    HWND fg = GetForegroundWindow();
+    HWND fg = Engine::Instance().LastForegroundHwnd();
+    if (!fg) fg = GetForegroundWindow();
     return RequestLayout(fg, target);
 }
 
@@ -110,7 +111,8 @@ bool LayoutManager::CycleLayout() {
     }
 
     HKL target = cached_layouts_[next_idx];
-    HWND fg = GetForegroundWindow();
+    HWND fg = Engine::Instance().LastForegroundHwnd();
+    if (!fg) fg = GetForegroundWindow();
     return RequestLayout(fg, target);
 }
 

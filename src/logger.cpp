@@ -31,6 +31,14 @@ void Logger::Write(std::string_view msg) {
     std::ofstream f(log_path_.c_str(), std::ios::out | std::ios::app);
     if (!f.is_open()) return;
 
+    f.seekp(0, std::ios::end);
+    if (f.tellp() > 512 * 1024) {
+        f.close();
+        f.open(log_path_.c_str(), std::ios::out | std::ios::trunc);
+        if (!f.is_open()) return;
+        f << "[Log rotated: size exceeded 512 KB]\n";
+    }
+
     auto now = std::time(nullptr);
     auto tm = *std::localtime(&now);
     f << std::put_time(&tm, "[%Y-%m-%d %H:%M:%S] ") << msg << "\n";
@@ -51,7 +59,7 @@ void Logger::ResetLogFile() {
     if (!f.is_open()) return;
     auto now = std::time(nullptr);
     auto tm = *std::localtime(&now);
-    f << std::put_time(&tm, "[%Y-%m-%d %H:%M:%S] ") << "Ultimakey: Журнал очищен (цикл 20 запусков)\n";
+    f << std::put_time(&tm, "[%Y-%m-%d %H:%M:%S] ") << "Ultimakey: Журнал очищен\n";
 }
 
 } // namespace Ultimakey

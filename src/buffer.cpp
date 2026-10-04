@@ -28,6 +28,7 @@ void KeystrokeBuffer::Append(std::wstring_view str) {
 
 void KeystrokeBuffer::Backspace() {
     last_activity_ = NowSeconds();
+    last_boundary_time_ = 0.0;
     if (!current_word_.empty()) {
         current_word_.pop_back();
     } else if (!last_tail_.empty()) {
@@ -61,7 +62,9 @@ void KeystrokeBuffer::Boundary(std::wstring_view ws) {
             session_words_[latest_idx].tail.append(ws);
         }
     }
-    last_activity_ = NowSeconds();
+    double now = NowSeconds();
+    last_activity_ = now;
+    last_boundary_time_ = now;
 }
 
 std::optional<ConversionTarget> KeystrokeBuffer::WordForConversion(bool completed_only) {
@@ -87,9 +90,15 @@ void KeystrokeBuffer::ApplyCompletedConversion(std::wstring_view converted) {
     }
 }
 
+void KeystrokeBuffer::ApplyDoubleSpacePeriod() noexcept {
+    last_tail_ = L". ";
+    last_boundary_time_ = 0.0;
+}
+
 void KeystrokeBuffer::SoftContextReset() {
     session_head_ = 0;
     session_count_ = 0;
+    last_boundary_time_ = 0.0;
 }
 
 void KeystrokeBuffer::Clear() {
@@ -100,6 +109,7 @@ void KeystrokeBuffer::Clear() {
     session_count_ = 0;
     current_word_gap_ = 0.0;
     last_word_gap_ = 0.0;
+    last_boundary_time_ = 0.0;
     last_activity_ = NowSeconds();
 }
 

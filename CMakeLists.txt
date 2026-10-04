@@ -45,6 +45,7 @@ target_link_libraries(Ultimakey PRIVATE
     oleaut32
     winmm
     advapi32
+    uxtheme
 )
 
 # Compiler optimization settings (Demoscene / Lean footprint)
@@ -78,6 +79,7 @@ elseif(MSVC)
         /GL
         /Gy
         /GR-
+        /EHs-c-
         /W4
         /permissive-
     )

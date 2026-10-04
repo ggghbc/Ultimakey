@@ -188,7 +188,6 @@ static void SwitchTab(int tab_idx) {
             if (item.tab_index == tab_idx) {
                 ShowWindow(item.hwnd, SW_SHOW);
                 BringWindowToTop(item.hwnd);
-                InvalidateRect(item.hwnd, nullptr, TRUE);
             } else {
                 ShowWindow(item.hwnd, SW_HIDE);
             }
@@ -198,8 +197,7 @@ static void SwitchTab(int tab_idx) {
         SetWindowPos(htab, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
     if (g_dialog_hwnd) {
-        InvalidateRect(g_dialog_hwnd, nullptr, TRUE);
-        UpdateWindow(g_dialog_hwnd);
+        RedrawWindow(g_dialog_hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
     }
 }
 
@@ -511,8 +509,22 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             return 0;
         }
 
-        case WM_ERASEBKGND:
+        case WM_ERASEBKGND: {
+            HDC hdc = reinterpret_cast<HDC>(wparam);
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            FillRect(hdc, &rc, GetSysColorBrush(COLOR_BTNFACE));
             return 1;
+        }
+
+        case WM_CTLCOLORDLG:
+            return reinterpret_cast<LRESULT>(GetSysColorBrush(COLOR_BTNFACE));
+
+        case WM_CTLCOLORSTATIC: {
+            HDC hdc_static = reinterpret_cast<HDC>(wparam);
+            SetBkMode(hdc_static, TRANSPARENT);
+            return reinterpret_cast<LRESULT>(GetSysColorBrush(COLOR_BTNFACE));
+        }
 
         case WM_NOTIFY: {
             auto nm = reinterpret_cast<LPNMHDR>(lparam);
@@ -533,6 +545,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 int sel = static_cast<int>(SendMessageW(hcombo, CB_GETCURSEL, 0, 0));
                 std::string new_lang = (sel == 1) ? "ru" : "en";
                 UpdateDialogTexts(hwnd, new_lang);
+                RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 return 0;
             }
 

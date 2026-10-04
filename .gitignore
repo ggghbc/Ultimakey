@@ -1,0 +1,26 @@
+# Build directories
+build/
+bin/
+out/
+.cache/
+
+# IDE / Editor files
+.vscode/
+.vs/
+*.user
+*.suo
+
+# Intermediate & binary build artifacts
+*.obj
+*.o
+*.a
+*.lib
+*.pdb
+*.idb
+
+# Log files
+*.log
+
+# Windows temp
+Thumbs.db
+Desktop.ini

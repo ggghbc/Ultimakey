@@ -1,0 +1,14 @@
+#include "resource.h"
+#include <windows.h>
+
+IDR_RU_DAWG     RCDATA "data/ru_dawg.bin"
+IDR_EN_DAWG     RCDATA "data/en_dawg.bin"
+IDR_RU_TRIGRAMS RCDATA "data/ru_trigrams.bin"
+IDR_EN_TRIGRAMS RCDATA "data/en_trigrams.bin"
+IDR_TYPO_RULES  RCDATA "data/typo_rules.bin"
+
+IDI_APP_ICON_ON  ICON "res/app_on.ico"
+IDI_APP_ICON_OFF ICON "res/app_off.ico"
+
+// Manifest
+1 24 "app.manifest"

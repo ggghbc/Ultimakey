@@ -159,36 +159,51 @@ static void PopulateDialog(HWND hwnd) {
 
     // Tab 2 snippets
     HWND hsnip = GetDlgItem(hwnd, ID_LIST_SNIPPETS);
-    SendMessageW(hsnip, LB_RESETCONTENT, 0, 0);
-    for (const auto& [trig, exp] : s.snippets) {
-        std::wstring line = trig + L"  ->  " + exp;
-        SendMessageW(hsnip, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
+    if (hsnip) {
+        SendMessageW(hsnip, WM_SETREDRAW, FALSE, 0);
+        SendMessageW(hsnip, LB_RESETCONTENT, 0, 0);
+        for (const auto& [trig, exp] : s.snippets) {
+            std::wstring line = trig + L"  ->  " + exp;
+            SendMessageW(hsnip, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
+        }
+        SendMessageW(hsnip, WM_SETREDRAW, TRUE, 0);
+        InvalidateRect(hsnip, nullptr, TRUE);
     }
 
     // Tab 3 apps
     HWND happs = GetDlgItem(hwnd, ID_LIST_APPS);
-    SendMessageW(happs, LB_RESETCONTENT, 0, 0);
-    for (const auto& [app, mode] : s.app_modes) {
-        std::wstring mode_desc = (mode == L"off") ? L"[Отключено]" : L"[Мягкий режим]";
-        std::wstring line = app + L"  " + mode_desc;
-        SendMessageW(happs, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
+    if (happs) {
+        SendMessageW(happs, WM_SETREDRAW, FALSE, 0);
+        SendMessageW(happs, LB_RESETCONTENT, 0, 0);
+        for (const auto& [app, mode] : s.app_modes) {
+            std::wstring mode_desc = (mode == L"off") ? L"[Отключено]" : L"[Мягкий режим]";
+            std::wstring line = app + L"  " + mode_desc;
+            SendMessageW(happs, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
+        }
+        SendMessageW(happs, WM_SETREDRAW, TRUE, 0);
+        InvalidateRect(happs, nullptr, TRUE);
     }
 
     HWND happ_mode_combo = GetDlgItem(hwnd, ID_COMBO_APP_MODE);
-    SendMessageW(happ_mode_combo, CB_RESETCONTENT, 0, 0);
-    SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Мягкий режим"));
-    SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Отключено"));
-    SendMessageW(happ_mode_combo, CB_SETCURSEL, 0, 0);
+    if (happ_mode_combo) {
+        SendMessageW(happ_mode_combo, CB_RESETCONTENT, 0, 0);
+        SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Мягкий режим"));
+        SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Отключено"));
+        SendMessageW(happ_mode_combo, CB_SETCURSEL, 0, 0);
+    }
 
     // Tab 4 words
     HWND hwords = GetDlgItem(hwnd, ID_LIST_WORDS);
     if (hwords) {
+        SendMessageW(hwords, WM_SETREDRAW, FALSE, 0);
         SendMessageW(hwords, LB_RESETCONTENT, 0, 0);
         std::vector<std::wstring> sorted_words(s.ignored_words.begin(), s.ignored_words.end());
         std::sort(sorted_words.begin(), sorted_words.end());
         for (const auto& w : sorted_words) {
             SendMessageW(hwords, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str()));
         }
+        SendMessageW(hwords, WM_SETREDRAW, TRUE, 0);
+        InvalidateRect(hwords, nullptr, TRUE);
     }
 }
 
@@ -264,7 +279,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
             // Tab Control
             HWND htab = CreateWindowExW(0, WC_TABCONTROLW, L"",
-                                        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_TABSTOP,
+                                        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_TABSTOP,
                                         s(12), s(10), s(645), s(450), hwnd, reinterpret_cast<HMENU>(ID_TAB), hinst, nullptr);
             SendMessageW(htab, WM_SETFONT, reinterpret_cast<WPARAM>(hfont), TRUE);
 
@@ -282,6 +297,10 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             SendMessageW(htab, TCM_INSERTITEMW, 4, reinterpret_cast<LPARAM>(&tie));
 
             auto add_ctrl = [&](HWND h, int tab_idx) {
+                LONG style = GetWindowLongW(h, GWL_STYLE);
+                if (!(style & WS_CLIPSIBLINGS)) {
+                    SetWindowLongW(h, GWL_STYLE, style | WS_CLIPSIBLINGS);
+                }
                 SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(hfont), TRUE);
                 g_controls.push_back({h, tab_idx});
                 return h;
@@ -403,16 +422,16 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                     HWND happs = GetDlgItem(hwnd, ID_LIST_APPS);
                     int sel = static_cast<int>(SendMessageW(happs, LB_GETCURSEL, 0, 0));
                     if (sel >= 0) {
-                        int len = static_cast<int>(SendMessageW(happs, LB_GETTEXTLEN, sel, 0));
-                        std::vector<wchar_t> text(len + 1);
-                        SendMessageW(happs, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
-                        std::wstring full(text.data());
-                        size_t sp = full.rfind(L"  [");
-                        if (sp != std::wstring::npos) {
-                            std::wstring app_key = full.substr(0, sp);
-                            SetDlgItemTextW(hwnd, ID_EDIT_APP, app_key.c_str());
-                            bool is_off = (full.find(L"[Отключено]") != std::wstring::npos);
-                            SendMessageW(GetDlgItem(hwnd, ID_COMBO_APP_MODE), CB_SETCURSEL, is_off ? 1 : 0, 0);
+                        wchar_t text[256] = {};
+                        if (SendMessageW(happs, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text)) != LB_ERR) {
+                            std::wstring_view full(text);
+                            size_t sp = full.rfind(L"  [");
+                            if (sp != std::wstring_view::npos) {
+                                std::wstring app_key(full.substr(0, sp));
+                                SetDlgItemTextW(hwnd, ID_EDIT_APP, app_key.c_str());
+                                bool is_off = (full.find(L"[Отключено]") != std::wstring_view::npos);
+                                SendMessageW(GetDlgItem(hwnd, ID_COMBO_APP_MODE), CB_SETCURSEL, is_off ? 1 : 0, 0);
+                            }
                         }
                     }
                     return 0;
@@ -420,10 +439,10 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                     HWND hwords = GetDlgItem(hwnd, ID_LIST_WORDS);
                     int sel = static_cast<int>(SendMessageW(hwords, LB_GETCURSEL, 0, 0));
                     if (sel >= 0) {
-                        int len = static_cast<int>(SendMessageW(hwords, LB_GETTEXTLEN, sel, 0));
-                        std::vector<wchar_t> text(len + 1);
-                        SendMessageW(hwords, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
-                        SetDlgItemTextW(hwnd, ID_EDIT_WORD, text.data());
+                        wchar_t text[256] = {};
+                        if (SendMessageW(hwords, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text)) != LB_ERR) {
+                            SetDlgItemTextW(hwnd, ID_EDIT_WORD, text);
+                        }
                     }
                     return 0;
                 }
@@ -431,19 +450,19 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 HWND happs = GetDlgItem(hwnd, ID_LIST_APPS);
                 int sel = static_cast<int>(SendMessageW(happs, LB_GETCURSEL, 0, 0));
                 if (sel >= 0) {
-                    int len = static_cast<int>(SendMessageW(happs, LB_GETTEXTLEN, sel, 0));
-                    std::vector<wchar_t> text(len + 1);
-                    SendMessageW(happs, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
-                    std::wstring full(text.data());
-                    size_t sp = full.rfind(L"  [");
-                    if (sp != std::wstring::npos) {
-                        std::wstring app_key = ToLower(full.substr(0, sp));
-                        auto it = Settings::Instance().app_modes.find(app_key);
-                        if (it != Settings::Instance().app_modes.end()) {
-                            it->second = (it->second == L"off") ? L"soft" : L"off";
-                            Settings::Instance().Save();
-                            PopulateDialog(hwnd);
-                            SendMessageW(happs, LB_SETCURSEL, sel, 0);
+                    wchar_t text[256] = {};
+                    if (SendMessageW(happs, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text)) != LB_ERR) {
+                        std::wstring_view full(text);
+                        size_t sp = full.rfind(L"  [");
+                        if (sp != std::wstring_view::npos) {
+                            std::wstring app_key = ToLower(full.substr(0, sp));
+                            auto it = Settings::Instance().app_modes.find(app_key);
+                            if (it != Settings::Instance().app_modes.end()) {
+                                it->second = (it->second == L"off") ? L"soft" : L"off";
+                                Settings::Instance().Save();
+                                PopulateDialog(hwnd);
+                                SendMessageW(happs, LB_SETCURSEL, sel, 0);
+                            }
                         }
                     }
                 }
@@ -608,8 +627,6 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         case WM_DESTROY:
             g_dialog_hwnd = nullptr;
             g_default_edit_proc = nullptr;
-            // Trim working set back to < 800 KB upon closing the settings dialog
-            SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
             return 0;
     }
     return DefWindowProcW(hwnd, msg, wparam, lparam);
@@ -649,8 +666,11 @@ void SettingsDialog::Show(HWND parent_hwnd, HINSTANCE hinstance) {
     }
     if (dpi == 0) dpi = 96;
 
+    DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
+    DWORD ex_style = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST | WS_EX_COMPOSITED;
+
     RECT rc = { 0, 0, MulDiv(680, static_cast<int>(dpi), 96), MulDiv(530, static_cast<int>(dpi), 96) };
-    AdjustWindowRectEx(&rc, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_DLGMODALFRAME | WS_EX_TOPMOST);
+    AdjustWindowRectEx(&rc, style, FALSE, ex_style);
     int win_w = rc.right - rc.left;
     int win_h = rc.bottom - rc.top;
 
@@ -659,9 +679,9 @@ void SettingsDialog::Show(HWND parent_hwnd, HINSTANCE hinstance) {
     int win_x = (screen_w - win_w) / 2;
     int win_y = (screen_h - win_h) / 2;
 
-    g_dialog_hwnd = CreateWindowExW(WS_EX_DLGMODALFRAME | WS_EX_TOPMOST,
+    g_dialog_hwnd = CreateWindowExW(ex_style,
                                    kClassName, L"Настройки Ultimakey",
-                                   WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE,
+                                   style | WS_VISIBLE,
                                    win_x, win_y, win_w, win_h,
                                    nullptr, nullptr, hinstance, nullptr);
 

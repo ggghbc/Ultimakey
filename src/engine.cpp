@@ -169,6 +169,7 @@ bool Engine::OnKeyboardHook(int n_code, WPARAM w_param, const KBDLLHOOKSTRUCT& k
 
 void Engine::OnMouseHook(int n_code, WPARAM w_param) {
     if (n_code < 0 || !initialized_ || paused_) return;
+    if (front_pid_ == GetCurrentProcessId()) return;
     if (w_param == WM_LBUTTONDOWN || w_param == WM_RBUTTONDOWN ||
         w_param == WM_MBUTTONDOWN || w_param == WM_XBUTTONDOWN) {
         HandleContextReset();
@@ -176,6 +177,7 @@ void Engine::OnMouseHook(int n_code, WPARAM w_param) {
 }
 
 bool Engine::OnKeyUp(int vk) {
+    if (front_pid_ == GetCurrentProcessId()) return false;
     switch (vk) {
         case VK_SHIFT:   case VK_LSHIFT:   case VK_RSHIFT:
             if (!IsKeyDown(VK_SHIFT)) current_modifiers_ &= ~Settings::ModShift;
@@ -200,6 +202,10 @@ bool Engine::OnKeyUp(int vk) {
 }
 
 bool Engine::OnKeyDown(int vk, int scan, bool injected) {
+    if (front_pid_ == GetCurrentProcessId()) {
+        return false;
+    }
+
     // Modifier keys alone are not typing events
     switch (vk) {
         case VK_SHIFT:   case VK_LSHIFT:   case VK_RSHIFT:

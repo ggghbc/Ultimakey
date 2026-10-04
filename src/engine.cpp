@@ -449,20 +449,28 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
         }
     }
 
-    buf_.Boundary(ws);
-    if (muted_) in_flight_real_keys_++;
-
     bool auto_trigger = (vk == VK_SPACE && s.trigger_space) || (vk == VK_TAB && s.trigger_tab);
     if (current_app_mode_ == AppMode::Off) auto_trigger = false;
 
-    if (auto_trigger && s.auto_enabled) {
-        boundary_fg_ = last_fg_hwnd_;
-        boundary_mode_soft_ = (current_app_mode_ == AppMode::Soft);
-        boundary_gen_at_start_ = boundary_gen_.load(std::memory_order_relaxed);
-        if (msg_hwnd_) {
-            SetTimer(msg_hwnd_, 1001, 20, nullptr);
+    if (auto_trigger && s.auto_enabled && !current.empty() && !muted_) {
+        auto prop = AutoProposal(current, current_app_mode_ == AppMode::Soft, false);
+        if (prop.has_value() && anti_.Allow(current, prop->text) && !SecureInput::Instance().CachedIsPassword(last_fg_hwnd_)) {
+            SetMuted();
+            Logger::Instance().Write("AutoProposal: мгновенная конверсия по разделителю");
+            std::wstring repl = prop->text + std::wstring(ws);
+            TextReplacer::Instance().Replace(static_cast<int>(current.length()), repl, false, [this](bool ok) {
+                EndSyntheticFlight(ok);
+            });
+            buf_.ApplyConversion(prop->text);
+            buf_.Boundary(ws);
+            LayoutManager::Instance().SelectLayout(prop->to_cyrillic);
+            SoundEffect::Instance().PlaySwitchSound();
+            return true;
         }
     }
+
+    buf_.Boundary(ws);
+    if (muted_) in_flight_real_keys_++;
 
     return false;
 }

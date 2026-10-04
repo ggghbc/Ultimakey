@@ -139,9 +139,7 @@ static const struct { int vk; const wchar_t* name; } kHotkeys[] = {
     {VK_SCROLL, L"Scroll Lock"},
     {VK_F1, L"F1"}, {VK_F2, L"F2"}, {VK_F3, L"F3"}, {VK_F4, L"F4"},
     {VK_F6, L"F6"}, {VK_F7, L"F7"}, {VK_F8, L"F8"}, {VK_F9, L"F9"},
-    {VK_F10, L"F10"}, {VK_F11, L"F11"}, {VK_F12, L"F12"},
-    {L'`', L"`"},
-    {VK_OEM_3, L"~ (OEM 3)"}
+    {VK_F10, L"F10"}, {VK_F11, L"F11"}, {VK_F12, L"F12"}
 };
 
 static void UpdateDialogTexts(HWND hwnd, const std::string& lang) {
@@ -327,7 +325,6 @@ static void SaveDialog(HWND hwnd) {
 
     s.Save();
     TrayIcon::Instance().UpdateState(s.auto_enabled, Engine::Instance().IsPaused());
-    TrayIcon::Instance().ShowNotification(L"Ultimakey", Tr(StrId::NotifSettingsSaved));
 }
 
 LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {

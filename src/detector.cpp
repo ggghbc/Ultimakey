@@ -5,7 +5,7 @@
 namespace Ultimakey {
 
 constexpr double kMargin = 2.0;
-constexpr double kShortEnSwapFloor = -10.0;
+constexpr double kShortEnSwapFloor = -32.0;
 
 LayoutDetector::LayoutDetector(const Dawg& words_ru, const Dawg& words_en,
                                const TrigramTable& trigrams_ru, const TrigramTable& trigrams_en)

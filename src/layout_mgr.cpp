@@ -69,6 +69,16 @@ bool LayoutManager::RequestLayout(HWND hwnd, HKL hkl) {
     if (!hwnd || !hkl) return false;
 
     DWORD target_tid = GetWindowThreadProcessId(hwnd, nullptr);
+    DWORD current_tid = GetCurrentThreadId();
+
+    if (target_tid && target_tid != current_tid) {
+        if (AttachThreadInput(current_tid, target_tid, TRUE)) {
+            ActivateKeyboardLayout(hkl, KLF_SETFORPROCESS);
+            AttachThreadInput(current_tid, target_tid, FALSE);
+        }
+    } else {
+        ActivateKeyboardLayout(hkl, KLF_SETFORPROCESS);
+    }
 
     // Post to top-level window (asynchronous, non-blocking)
     PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));

@@ -45,4 +45,13 @@ void Logger::Write(std::wstring_view msg) {
     Write(s);
 }
 
+void Logger::ResetLogFile() {
+    std::lock_guard<std::mutex> lock(g_log_mutex);
+    std::ofstream f(log_path_.c_str(), std::ios::out | std::ios::trunc);
+    if (!f.is_open()) return;
+    auto now = std::time(nullptr);
+    auto tm = *std::localtime(&now);
+    f << std::put_time(&tm, "[%Y-%m-%d %H:%M:%S] ") << "Ultimakey: Журнал очищен (цикл 20 запусков)\n";
+}
+
 } // namespace Ultimakey

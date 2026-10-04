@@ -34,21 +34,24 @@ void Keymap::Initialize() {
 }
 
 void Keymap::BuildStaticMaps() {
+    static_en_to_ru_.Clear();
+    static_ru_to_en_.Clear();
+
     for (const auto& [e, r] : kBasePairs) {
-        static_en_to_ru_[e] = r;
-        static_ru_to_en_[r] = e;
+        static_en_to_ru_.Set(e, r);
+        static_ru_to_en_.Set(r, e);
 
         wchar_t upper_e = ToUpper(e);
         wchar_t upper_r = ToUpper(r);
         if (upper_e != e || upper_r != r) {
-            static_en_to_ru_[upper_e] = upper_r;
-            static_ru_to_en_[upper_r] = upper_e;
+            static_en_to_ru_.Set(upper_e, upper_r);
+            static_ru_to_en_.Set(upper_r, upper_e);
         }
     }
 
     for (const auto& [e, r] : kShiftPairs) {
-        static_en_to_ru_[e] = r;
-        static_ru_to_en_[r] = e;
+        static_en_to_ru_.Set(e, r);
+        static_ru_to_en_.Set(r, e);
     }
 }
 
@@ -81,8 +84,9 @@ bool Keymap::BuildDynamicMaps() {
         return true;
     }
 
-    std::unordered_map<wchar_t, wchar_t> new_en_to_ru;
-    std::unordered_map<wchar_t, wchar_t> new_ru_to_en;
+    CharTable new_en_to_ru;
+    CharTable new_ru_to_en;
+    bool has_any = false;
 
     BYTE state_normal[256] = {};
     BYTE state_shift[256] = {};
@@ -99,8 +103,9 @@ bool Keymap::BuildDynamicMaps() {
         int n_lat = ToUnicodeEx(vk_lat, sc, state_normal, buf_lat, 8, 4, latin_hkl);
         int n_cyr = ToUnicodeEx(vk_cyr, sc, state_normal, buf_cyr, 8, 4, cyrillic_hkl);
         if (n_lat == 1 && n_cyr == 1) {
-            new_en_to_ru[buf_lat[0]] = buf_cyr[0];
-            new_ru_to_en[buf_cyr[0]] = buf_lat[0];
+            new_en_to_ru.Set(buf_lat[0], buf_cyr[0]);
+            new_ru_to_en.Set(buf_cyr[0], buf_lat[0]);
+            has_any = true;
         }
 
         // Shift
@@ -109,15 +114,16 @@ bool Keymap::BuildDynamicMaps() {
         n_lat = ToUnicodeEx(vk_lat, sc, state_shift, sbuf_lat, 8, 4, latin_hkl);
         n_cyr = ToUnicodeEx(vk_cyr, sc, state_shift, sbuf_cyr, 8, 4, cyrillic_hkl);
         if (n_lat == 1 && n_cyr == 1) {
-            new_en_to_ru[sbuf_lat[0]] = sbuf_cyr[0];
-            new_ru_to_en[sbuf_cyr[0]] = sbuf_lat[0];
+            new_en_to_ru.Set(sbuf_lat[0], sbuf_cyr[0]);
+            new_ru_to_en.Set(sbuf_cyr[0], sbuf_lat[0]);
+            has_any = true;
         }
     }
 
-    dynamic_en_to_ru_ = std::move(new_en_to_ru);
-    dynamic_ru_to_en_ = std::move(new_ru_to_en);
+    dynamic_en_to_ru_ = new_en_to_ru;
+    dynamic_ru_to_en_ = new_ru_to_en;
     built_for_signature_ = sig.str();
-    dynamic_ready_ = !dynamic_en_to_ru_.empty();
+    dynamic_ready_ = has_any;
     return dynamic_ready_;
 }
 
@@ -153,18 +159,17 @@ wchar_t Keymap::ConvertChar(wchar_t ch, bool to_cyrillic) const noexcept {
     const auto& dyn_map = to_cyrillic ? dynamic_en_to_ru_ : dynamic_ru_to_en_;
     const auto& stat_map = to_cyrillic ? static_en_to_ru_ : static_ru_to_en_;
 
-    if (dynamic_ready_) {
-        auto it = dyn_map.find(ch);
-        if (it != dyn_map.end()) return it->second;
+    if (dynamic_ready_ && dyn_map.Contains(ch)) {
+        return dyn_map.Map(ch);
     }
 
-    auto it = stat_map.find(ch);
-    if (it != stat_map.end()) return it->second;
+    if (stat_map.Contains(ch)) {
+        return stat_map.Map(ch);
+    }
 
     wchar_t straightened = Straighten(ch);
-    if (straightened != ch) {
-        it = stat_map.find(straightened);
-        if (it != stat_map.end()) return it->second;
+    if (straightened != ch && stat_map.Contains(straightened)) {
+        return stat_map.Map(straightened);
     }
 
     return ch;

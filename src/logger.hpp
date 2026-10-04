@@ -12,6 +12,7 @@ public:
 
     void Write(std::string_view msg);
     void Write(std::wstring_view msg);
+    void ResetLogFile();
 
     std::wstring GetLogFilePath() const;
 

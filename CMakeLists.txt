@@ -52,6 +52,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(Ultimakey PRIVATE
         -O3
         -flto
+        -fno-exceptions
+        -fno-rtti
         -Wall
         -Wextra
         -Wno-unused-parameter
@@ -75,6 +77,7 @@ elseif(MSVC)
         /Oi
         /GL
         /Gy
+        /GR-
         /W4
         /permissive-
     )

@@ -2,7 +2,8 @@
 
 #include "types.hpp"
 #include <string>
-#include <vector>
+#include <string_view>
+#include <array>
 #include <optional>
 
 namespace Ultimakey {
@@ -29,8 +30,8 @@ public:
     void SoftContextReset();
     void Clear();
 
-    std::wstring ContextWord(bool context_for_current) const;
-    std::wstring EarlierContextWord(bool context_for_current) const;
+    std::wstring_view ContextWord(bool context_for_current) const noexcept;
+    std::wstring_view EarlierContextWord(bool context_for_current) const noexcept;
 
     const std::wstring& CurrentWord() const noexcept { return current_word_; }
     const std::wstring& LastWord() const noexcept { return last_word_; }
@@ -39,7 +40,10 @@ public:
     double CurrentWordGap() const noexcept { return current_word_gap_; }
     double LastWordGap() const noexcept { return last_word_gap_; }
 
-    void ClearSessionWords() { session_words_.clear(); }
+    void ClearSessionWords() noexcept {
+        session_head_ = 0;
+        session_count_ = 0;
+    }
 
 private:
     std::wstring current_word_;
@@ -50,7 +54,10 @@ private:
         std::wstring word;
         std::wstring tail;
     };
-    std::vector<HistoryItem> session_words_;
+    static constexpr size_t kHistoryCap = 8;
+    std::array<HistoryItem, kHistoryCap> session_words_{};
+    size_t session_head_ = 0;
+    size_t session_count_ = 0;
 
     double current_word_gap_ = 0.0;
     double last_word_gap_ = 0.0;

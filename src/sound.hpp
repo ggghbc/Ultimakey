@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.hpp"
-#include <vector>
 
 namespace Ultimakey {
 
@@ -14,11 +13,9 @@ public:
     bool IsEnabled() const noexcept { return enabled_; }
 
 private:
-    SoundEffect();
-    void GenerateWav();
+    SoundEffect() = default;
 
     bool enabled_ = false;
-    std::vector<uint8_t> wav_data_;
 };
 
 } // namespace Ultimakey

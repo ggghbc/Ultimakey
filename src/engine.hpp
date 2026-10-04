@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <optional>
+#include <atomic>
 
 namespace Ultimakey {
 
@@ -57,7 +58,7 @@ private:
     void ApplyContextClear();
     void RefreshForeground();
 
-    std::wstring DecodeChar(int vk, int scan, bool shift);
+    wchar_t DecodeChar(int vk, int scan, bool shift) noexcept;
 
     bool MutedStuck();
     void SetMuted();
@@ -93,6 +94,8 @@ private:
     HWINEVENTHOOK fg_event_hook_ = nullptr;
     bool boundary_mode_soft_ = false;
     HWND boundary_fg_ = nullptr;
+    std::atomic<uint32_t> boundary_gen_{0};
+    uint32_t boundary_gen_at_start_ = 0;
 
     std::unordered_map<int, int64_t> swallowed_ups_;
     std::unordered_set<std::wstring> session_protected_;

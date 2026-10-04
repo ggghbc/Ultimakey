@@ -9,6 +9,7 @@ namespace Ultimakey {
 
 #pragma pack(push, 1)
 struct TypoIndex {
+    uint32_t prefix;      // (c0 << 16) | c1
     uint32_t typo_offset; // in wchar_t
     uint16_t typo_len;
     uint32_t fix_offset;  // in wchar_t
@@ -16,7 +17,7 @@ struct TypoIndex {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(TypoIndex) == 12, "TypoIndex must be 12 bytes");
+static_assert(sizeof(TypoIndex) == 16, "TypoIndex must be 16 bytes");
 
 class TypoRules {
 public:
@@ -44,13 +45,19 @@ public:
         const TypoIndex* first = entries_;
         const TypoIndex* last = entries_ + count_;
 
-        auto comp = [this](const TypoIndex& idx, std::wstring_view target) {
+        uint32_t target_prefix = (static_cast<uint32_t>(typo[0]) << 16) |
+                                 (typo.length() > 1 ? static_cast<uint32_t>(typo[1]) : 0);
+
+        auto comp = [this, target_prefix](const TypoIndex& idx, std::wstring_view target) {
+            if (idx.prefix != target_prefix) {
+                return idx.prefix < target_prefix;
+            }
             std::wstring_view sv(pool_ + idx.typo_offset, idx.typo_len);
             return sv < target;
         };
 
         const TypoIndex* it = std::lower_bound(first, last, typo, comp);
-        if (it != last) {
+        if (it != last && it->prefix == target_prefix) {
             std::wstring_view sv(pool_ + it->typo_offset, it->typo_len);
             if (sv == typo) {
                 return std::wstring_view(pool_ + it->fix_offset, it->fix_len);

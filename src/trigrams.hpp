@@ -49,26 +49,18 @@ public:
         return 0xFF;
     }
 
-    float GetScore(wchar_t c0, wchar_t c1, wchar_t c2) const noexcept {
-        if (!is_loaded_ || count_ == 0) return floor_val_;
-
-        uint8_t id0 = GetCharId(c0);
-        uint8_t id1 = GetCharId(c1);
-        uint8_t id2 = GetCharId(c2);
-
-        if (id0 == 0xFF || id1 == 0xFF || id2 == 0xFF) return floor_val_;
+    inline float ScoreByIds(uint8_t id0, uint8_t id1, uint8_t id2) const noexcept {
+        if (!is_loaded_ || count_ == 0 || id0 == 0xFF || id1 == 0xFF || id2 == 0xFF) return floor_val_;
 
         uint32_t target_prefix = (static_cast<uint32_t>(id0) << 12) |
                                  (static_cast<uint32_t>(id1) << 6) |
                                  static_cast<uint32_t>(id2);
+        uint32_t target_key = target_prefix << 14;
 
         const uint32_t* first = entries_;
         const uint32_t* last = entries_ + count_;
 
-        const uint32_t* it = std::lower_bound(first, last, target_prefix,
-            [](uint32_t entry, uint32_t pfx) {
-                return (entry >> 14) < pfx;
-            });
+        const uint32_t* it = std::lower_bound(first, last, target_key);
 
         if (it != last && (*it >> 14) == target_prefix) {
             uint16_t mag = *it & 0x3FFF;
@@ -78,17 +70,32 @@ public:
         return floor_val_;
     }
 
+    float GetScore(wchar_t c0, wchar_t c1, wchar_t c2) const noexcept {
+        return ScoreByIds(GetCharId(c0), GetCharId(c1), GetCharId(c2));
+    }
+
     double Plausibility(std::wstring_view word) const noexcept {
-        if (!is_loaded_ || word.empty()) return 0.0;
+        if (!is_loaded_ || word.empty() || count_ == 0) return 0.0;
 
         const size_t len = word.length();
-        double total = 0.0;
+        uint8_t stack_ids[66];
+        uint8_t* ids = stack_ids;
+        std::vector<uint8_t> heap_ids;
+        if (len + 2 > sizeof(stack_ids)) {
+            heap_ids.resize(len + 2);
+            ids = heap_ids.data();
+        }
 
+        uint8_t space_id = GetCharId(L' ');
+        ids[0] = space_id;
         for (size_t i = 0; i < len; ++i) {
-            wchar_t c0 = (i == 0) ? L' ' : word[i - 1];
-            wchar_t c1 = word[i];
-            wchar_t c2 = (i + 1 < len) ? word[i + 1] : L' ';
-            total += GetScore(c0, c1, c2);
+            ids[i + 1] = GetCharId(word[i]);
+        }
+        ids[len + 1] = space_id;
+
+        double total = 0.0;
+        for (size_t i = 0; i < len; ++i) {
+            total += ScoreByIds(ids[i], ids[i + 1], ids[i + 2]);
         }
         return total;
     }

@@ -84,8 +84,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
         return 0; // Already running
     }
 
-    // 2. Load Settings
+    // 2. Load Settings & Auto-clean log every 20 launches
     Settings::Instance().Load();
+    auto& s = Settings::Instance();
+    s.launch_count++;
+    if (s.launch_count >= 20) {
+        s.launch_count = 0;
+        Logger::Instance().ResetLogFile();
+    }
+    s.Save();
+
     Logger::Instance().Write("Ultimakey: Запуск программы");
 
     // 3. Initialize Engine & Language Data from Resources

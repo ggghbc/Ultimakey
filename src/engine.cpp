@@ -202,9 +202,8 @@ bool Engine::OnKeyDown(int vk, int scan, bool injected) {
 
     const auto& s = Settings::Instance();
 
-    if (msg_hwnd_) {
-        KillTimer(msg_hwnd_, 1001);
-    }
+    // Lockless check: increment generation so any pending boundary timer will be discarded
+    boundary_gen_.fetch_add(1, std::memory_order_relaxed);
 
     // CapsLock remap
     if (vk == VK_CAPITAL && s.caps_remap_enabled) {
@@ -286,8 +285,8 @@ bool Engine::OnKeyDown(int vk, int scan, bool injected) {
         return false;
     }
 
-    std::wstring typed = DecodeChar(vk, scan, shift);
-    if (typed.empty()) return false;
+    wchar_t typed = DecodeChar(vk, scan, shift);
+    if (!typed) return false;
 
     if (muted_) in_flight_real_keys_++;
 
@@ -301,7 +300,7 @@ bool Engine::OnKeyDown(int vk, int scan, bool injected) {
     return false;
 }
 
-std::wstring Engine::DecodeChar(int vk, int scan, bool shift) {
+wchar_t Engine::DecodeChar(int vk, int scan, bool shift) noexcept {
     HKL hkl = LayoutManager::Instance().CurrentHkl();
     BYTE state[256] = {};
     if (shift) state[VK_SHIFT] = 0x80;
@@ -314,12 +313,10 @@ std::wstring Engine::DecodeChar(int vk, int scan, bool shift) {
 
     wchar_t buf[8] = {};
     int n = ToUnicodeEx(static_cast<UINT>(vk), static_cast<UINT>(scan), state, buf, 8, 4, hkl);
-    if (n == 1) {
-        wchar_t c = buf[0];
-        if (c < 32) return L""; // control char
-        return std::wstring(1, c);
+    if (n == 1 && buf[0] >= 32) {
+        return buf[0];
     }
-    return L"";
+    return 0;
 }
 
 bool Engine::CheckSnippet(std::wstring_view word) {
@@ -408,6 +405,7 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
     if (auto_trigger && s.auto_enabled) {
         boundary_fg_ = last_fg_hwnd_;
         boundary_mode_soft_ = (mode == L"soft");
+        boundary_gen_at_start_ = boundary_gen_.load(std::memory_order_relaxed);
         if (msg_hwnd_) {
             SetTimer(msg_hwnd_, 1001, 20, nullptr);
         }
@@ -418,6 +416,7 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
 
 void Engine::OnBoundaryTimer() {
     if (!initialized_ || paused_ || !Settings::Instance().auto_enabled) return;
+    if (boundary_gen_.load(std::memory_order_relaxed) != boundary_gen_at_start_) return;
     if (last_fg_hwnd_ != boundary_fg_) return;
     ConvertFromBuffer(false, boundary_mode_soft_);
 }
@@ -461,8 +460,8 @@ std::optional<Engine::Proposal> Engine::AutoProposal(std::wstring_view word, boo
     }
 
     bool context_for_current = !completed && !buf_.CurrentWord().empty();
-    std::wstring prev_w = buf_.ContextWord(context_for_current);
-    std::wstring earlier_w = buf_.EarlierContextWord(context_for_current);
+    std::wstring_view prev_w = buf_.ContextWord(context_for_current);
+    std::wstring_view earlier_w = buf_.EarlierContextWord(context_for_current);
 
     bool after_jump = caret_jumped_since_clear_;
     caret_jumped_since_clear_ = false;

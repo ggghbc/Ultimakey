@@ -47,13 +47,8 @@ void TextReplacer::WorkerLoop() {
             queue_.pop();
         }
 
-        bool success = false;
-        try {
-            PerformReplace(job.delete_count, job.text, job.then_return);
-            success = true;
-        } catch (...) {
-            success = false;
-        }
+        PerformReplace(job.delete_count, job.text, job.then_return);
+        bool success = true;
 
         if (job.completion) {
             job.completion(success);

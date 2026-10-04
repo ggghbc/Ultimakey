@@ -265,6 +265,7 @@ def serialize_typo_rules(typo_dict):
       uint32_t magic = 0x54595032 ('TYP2')
       uint32_t count
       struct TypoIndex {
+        uint32_t prefix;      // (c0 << 16) | c1
         uint32_t typo_offset; // in wchar_t
         uint16_t typo_len;
         uint32_t fix_offset;  // in wchar_t
@@ -283,6 +284,10 @@ def serialize_typo_rules(typo_dict):
     pool = []
 
     for typo, fix in items:
+        c0 = ord(typo[0]) if len(typo) > 0 else 0
+        c1 = ord(typo[1]) if len(typo) > 1 else 0
+        prefix = (c0 << 16) | c1
+
         typo_offset = len(pool)
         typo_len = len(typo)
         pool.extend([ord(c) for c in typo])
@@ -291,12 +296,15 @@ def serialize_typo_rules(typo_dict):
         fix_len = len(fix)
         pool.extend([ord(c) for c in fix])
 
-        indices.append((typo_offset, typo_len, fix_offset, fix_len))
+        indices.append((prefix, typo_offset, typo_len, fix_offset, fix_len))
+
+    for i in range(len(indices) - 1):
+        assert indices[i][0] <= indices[i + 1][0], "Prefixes must be non-decreasing"
 
     out = bytearray(b'TYP2')
     out += struct.pack('<I', len(items))
-    for t_off, t_len, f_off, f_len in indices:
-        out += struct.pack('<IHIH', t_off, t_len, f_off, f_len)
+    for pfx, t_off, t_len, f_off, f_len in indices:
+        out += struct.pack('<IIHIH', pfx, t_off, t_len, f_off, f_len)
     for c in pool:
         out += struct.pack('<H', c)
     return bytes(out)

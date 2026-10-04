@@ -46,16 +46,19 @@ void KeystrokeBuffer::Boundary(std::wstring_view ws) {
         last_word_ = current_word_;
         last_word_gap_ = current_word_gap_;
         last_tail_ = ws;
-        session_words_.push_back({current_word_, std::wstring(ws)});
-        if (session_words_.size() > 8) {
-            session_words_.erase(session_words_.begin());
+        session_words_[session_head_].word = current_word_;
+        session_words_[session_head_].tail = ws;
+        session_head_ = (session_head_ + 1) % kHistoryCap;
+        if (session_count_ < kHistoryCap) {
+            session_count_++;
         }
         current_word_.clear();
         current_word_gap_ = 0.0;
     } else if (!last_word_.empty()) {
         last_tail_.append(ws);
-        if (!session_words_.empty()) {
-            session_words_.back().tail.append(ws);
+        if (session_count_ > 0) {
+            size_t latest_idx = (session_head_ + kHistoryCap - 1) % kHistoryCap;
+            session_words_[latest_idx].tail.append(ws);
         }
     }
     last_activity_ = NowSeconds();
@@ -78,41 +81,46 @@ void KeystrokeBuffer::ApplyConversion(std::wstring_view converted) {
 
 void KeystrokeBuffer::ApplyCompletedConversion(std::wstring_view converted) {
     last_word_ = converted;
-    if (!session_words_.empty()) {
-        session_words_.back().word = converted;
+    if (session_count_ > 0) {
+        size_t latest_idx = (session_head_ + kHistoryCap - 1) % kHistoryCap;
+        session_words_[latest_idx].word = converted;
     }
 }
 
 void KeystrokeBuffer::SoftContextReset() {
-    session_words_.clear();
+    session_head_ = 0;
+    session_count_ = 0;
 }
 
 void KeystrokeBuffer::Clear() {
     current_word_.clear();
     last_word_.clear();
     last_tail_.clear();
-    session_words_.clear();
+    session_head_ = 0;
+    session_count_ = 0;
     current_word_gap_ = 0.0;
     last_word_gap_ = 0.0;
     last_activity_ = NowSeconds();
 }
 
-std::wstring KeystrokeBuffer::ContextWord(bool context_for_current) const {
+std::wstring_view KeystrokeBuffer::ContextWord(bool context_for_current) const noexcept {
     if (context_for_current) {
         return last_word_;
     }
-    if (session_words_.size() >= 2) {
-        return session_words_[session_words_.size() - 2].word;
+    if (session_count_ >= 2) {
+        size_t idx = (session_head_ + kHistoryCap - 2) % kHistoryCap;
+        return session_words_[idx].word;
     }
-    return L"";
+    return {};
 }
 
-std::wstring KeystrokeBuffer::EarlierContextWord(bool context_for_current) const {
+std::wstring_view KeystrokeBuffer::EarlierContextWord(bool context_for_current) const noexcept {
     size_t need = context_for_current ? 2 : 3;
-    if (session_words_.size() >= need) {
-        return session_words_[session_words_.size() - need].word;
+    if (session_count_ >= need) {
+        size_t idx = (session_head_ + kHistoryCap - need) % kHistoryCap;
+        return session_words_[idx].word;
     }
-    return L"";
+    return {};
 }
 
 } // namespace Ultimakey

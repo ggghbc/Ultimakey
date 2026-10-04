@@ -279,9 +279,10 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
             // Tab Control
             HWND htab = CreateWindowExW(0, WC_TABCONTROLW, L"",
-                                        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_TABSTOP,
+                                        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_TABSTOP,
                                         s(12), s(10), s(645), s(450), hwnd, reinterpret_cast<HMENU>(ID_TAB), hinst, nullptr);
             SendMessageW(htab, WM_SETFONT, reinterpret_cast<WPARAM>(hfont), TRUE);
+            SetWindowPos(htab, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
             TCITEMW tie = {};
             tie.mask = TCIF_TEXT;
@@ -297,10 +298,6 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             SendMessageW(htab, TCM_INSERTITEMW, 4, reinterpret_cast<LPARAM>(&tie));
 
             auto add_ctrl = [&](HWND h, int tab_idx) {
-                LONG style = GetWindowLongW(h, GWL_STYLE);
-                if (!(style & WS_CLIPSIBLINGS)) {
-                    SetWindowLongW(h, GWL_STYLE, style | WS_CLIPSIBLINGS);
-                }
                 SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(hfont), TRUE);
                 g_controls.push_back({h, tab_idx});
                 return h;
@@ -666,8 +663,8 @@ void SettingsDialog::Show(HWND parent_hwnd, HINSTANCE hinstance) {
     }
     if (dpi == 0) dpi = 96;
 
-    DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
-    DWORD ex_style = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST | WS_EX_COMPOSITED;
+    DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
+    DWORD ex_style = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST;
 
     RECT rc = { 0, 0, MulDiv(680, static_cast<int>(dpi), 96), MulDiv(530, static_cast<int>(dpi), 96) };
     AdjustWindowRectEx(&rc, style, FALSE, ex_style);

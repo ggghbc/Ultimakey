@@ -1,4 +1,5 @@
 #include "layout_mgr.hpp"
+#include "engine.hpp"
 #include <algorithm>
 
 namespace Ultimakey {
@@ -19,6 +20,8 @@ std::vector<HKL> LayoutManager::InstalledLayouts() const {
 }
 
 HKL LayoutManager::CurrentHkl() const {
+    DWORD tid = Engine::Instance().CurrentForegroundThreadId();
+    if (tid != 0) return GetKeyboardLayout(tid);
     HWND fg = GetForegroundWindow();
     if (!fg) return GetKeyboardLayout(0);
     DWORD thread_id = GetWindowThreadProcessId(fg, nullptr);

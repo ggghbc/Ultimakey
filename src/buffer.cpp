@@ -47,6 +47,9 @@ void KeystrokeBuffer::Boundary(std::wstring_view ws) {
         last_word_gap_ = current_word_gap_;
         last_tail_ = ws;
         session_words_.push_back({current_word_, std::wstring(ws)});
+        if (session_words_.size() > 8) {
+            session_words_.erase(session_words_.begin());
+        }
         current_word_.clear();
         current_word_gap_ = 0.0;
     } else if (!last_word_.empty()) {

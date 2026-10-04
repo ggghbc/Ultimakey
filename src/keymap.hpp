@@ -17,6 +17,7 @@ public:
     std::wstring Convert(std::wstring_view text, bool to_cyrillic) const;
     std::wstring SmartConvert(std::wstring_view word, bool to_cyrillic,
                               const std::function<bool(std::wstring_view)>& is_valid_target = nullptr) const;
+    wchar_t ConvertChar(wchar_t ch, bool to_cyrillic) const noexcept;
 
     static std::wstring_view Core(std::wstring_view word) noexcept;
     static wchar_t Straighten(wchar_t ch) noexcept;
@@ -30,7 +31,6 @@ private:
     void BuildStaticMaps();
     bool BuildDynamicMaps();
 
-    wchar_t ConvertChar(wchar_t ch, bool to_cyrillic) const noexcept;
     wchar_t PeeledMark(wchar_t p, bool to_cyrillic) const noexcept;
     wchar_t NumberSeparator(wchar_t ch, bool to_cyrillic, bool left_has_separator,
                             std::wstring_view text, size_t rest_from) const noexcept;

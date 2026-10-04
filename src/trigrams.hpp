@@ -3,67 +3,84 @@
 #include "types.hpp"
 #include <cstring>
 #include <algorithm>
+#include <array>
 
 namespace Ultimakey {
-
-#pragma pack(push, 1)
-struct TrigramEntry {
-    wchar_t c0;
-    wchar_t c1;
-    wchar_t c2;
-    int16_t pad;
-    float score;
-};
-#pragma pack(pop)
-
-static_assert(sizeof(TrigramEntry) == 12, "TrigramEntry must be 12 bytes");
 
 class TrigramTable {
 public:
     TrigramTable() = default;
 
     bool LoadFromMemory(const void* data, size_t size) {
-        if (!data || size < 8) return false;
+        if (!data || size < 10) return false;
         const uint8_t* bytes = static_cast<const uint8_t*>(data);
-        if (std::memcmp(bytes, "TRIG", 4) != 0) return false;
+        if (std::memcmp(bytes, "TRG2", 4) != 0) return false;
 
-        count_ = *reinterpret_cast<const uint32_t*>(bytes + 4);
-        if (8 + count_ * sizeof(TrigramEntry) > size) return false;
+        uint16_t alpha_len = *reinterpret_cast<const uint16_t*>(bytes + 4);
+        if (6 + alpha_len * sizeof(wchar_t) + 4 > size) return false;
 
-        entries_ = reinterpret_cast<const TrigramEntry*>(bytes + 8);
+        const wchar_t* alpha = reinterpret_cast<const wchar_t*>(bytes + 6);
+        ascii_map_.fill(0xFF);
+        cyr_map_.fill(0xFF);
+
+        for (uint16_t i = 0; i < alpha_len; ++i) {
+            wchar_t c = alpha[i];
+            if (c < 128) {
+                ascii_map_[static_cast<uint8_t>(c)] = static_cast<uint8_t>(i);
+            } else if (c >= 0x0400 && c <= 0x045F) {
+                cyr_map_[c - 0x0400] = static_cast<uint8_t>(i);
+            }
+        }
+
+        size_t offset = 6 + alpha_len * sizeof(wchar_t);
+        count_ = *reinterpret_cast<const uint32_t*>(bytes + offset);
+        offset += 4;
+
+        if (offset + count_ * sizeof(uint32_t) > size) return false;
+        entries_ = reinterpret_cast<const uint32_t*>(bytes + offset);
+
         is_loaded_ = true;
         return true;
+    }
+
+    inline uint8_t GetCharId(wchar_t c) const noexcept {
+        if (c < 128) return ascii_map_[c];
+        if (c >= 0x0400 && c <= 0x045F) return cyr_map_[c - 0x0400];
+        return 0xFF;
     }
 
     float GetScore(wchar_t c0, wchar_t c1, wchar_t c2) const noexcept {
         if (!is_loaded_ || count_ == 0) return floor_val_;
 
-        const TrigramEntry* first = entries_;
-        const TrigramEntry* last = entries_ + count_;
+        uint8_t id0 = GetCharId(c0);
+        uint8_t id1 = GetCharId(c1);
+        uint8_t id2 = GetCharId(c2);
 
-        auto comp = [](const TrigramEntry& e, const uint64_t target) {
-            uint64_t e_chars = (static_cast<uint64_t>(e.c0) << 32) |
-                               (static_cast<uint64_t>(e.c1) << 16) |
-                               static_cast<uint64_t>(e.c2);
-            return e_chars < target;
-        };
+        if (id0 == 0xFF || id1 == 0xFF || id2 == 0xFF) return floor_val_;
 
-        uint64_t target = (static_cast<uint64_t>(c0) << 32) |
-                          (static_cast<uint64_t>(c1) << 16) |
-                          static_cast<uint64_t>(c2);
+        uint32_t target_prefix = (static_cast<uint32_t>(id0) << 12) |
+                                 (static_cast<uint32_t>(id1) << 6) |
+                                 static_cast<uint32_t>(id2);
 
-        const TrigramEntry* it = std::lower_bound(first, last, target, comp);
-        if (it != last && it->c0 == c0 && it->c1 == c1 && it->c2 == c2) {
-            return it->score;
+        const uint32_t* first = entries_;
+        const uint32_t* last = entries_ + count_;
+
+        const uint32_t* it = std::lower_bound(first, last, target_prefix,
+            [](uint32_t entry, uint32_t pfx) {
+                return (entry >> 14) < pfx;
+            });
+
+        if (it != last && (*it >> 14) == target_prefix) {
+            uint16_t mag = *it & 0x3FFF;
+            return -static_cast<float>(mag) / 1000.0f;
         }
+
         return floor_val_;
     }
 
     double Plausibility(std::wstring_view word) const noexcept {
         if (!is_loaded_ || word.empty()) return 0.0;
 
-        // Padded representation: L" " + word + L" "
-        // Number of trigrams = word.length() + 2 - 3 + 1 = word.length()
         const size_t len = word.length();
         double total = 0.0;
 
@@ -82,8 +99,10 @@ public:
 private:
     bool is_loaded_ = false;
     uint32_t count_ = 0;
-    const TrigramEntry* entries_ = nullptr;
-    float floor_val_ = -20.0f;
+    const uint32_t* entries_ = nullptr;
+    float floor_val_ = -16.0f;
+    std::array<uint8_t, 128> ascii_map_{};
+    std::array<uint8_t, 96> cyr_map_{};
 };
 
 } // namespace Ultimakey

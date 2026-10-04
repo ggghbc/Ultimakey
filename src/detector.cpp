@@ -29,9 +29,9 @@ bool LayoutDetector::WordExistsInSource(std::wstring_view w, bool cyrillic) cons
 
 bool LayoutDetector::IsLayoutLetter(wchar_t c) noexcept {
     if (IsLatin(c) || IsCyrillic(c)) return true;
-    wchar_t r = Keymap::Instance().Convert(std::wstring_view(&c, 1), true)[0];
+    wchar_t r = Keymap::Instance().ConvertChar(c, true);
     if (IsCyrillic(r)) return true;
-    wchar_t e = Keymap::Instance().Convert(std::wstring_view(&c, 1), false)[0];
+    wchar_t e = Keymap::Instance().ConvertChar(c, false);
     if (IsLatin(e)) return true;
     return false;
 }

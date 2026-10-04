@@ -5,6 +5,7 @@
 #include "tray.hpp"
 #include "ui_settings.hpp"
 #include "logger.hpp"
+#include <timeapi.h>
 
 using namespace Ultimakey;
 
@@ -13,6 +14,15 @@ static HANDLE g_single_instance_mutex = nullptr;
 
 static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
+        case WM_TIMER: {
+            if (wparam == 1001) {
+                KillTimer(hwnd, 1001);
+                Engine::Instance().OnBoundaryTimer();
+                return 0;
+            }
+            break;
+        }
+
         case TrayIcon::WM_TRAY_CALLBACK: {
             if (lparam == WM_RBUTTONUP) {
                 TrayIcon::Instance().ShowContextMenu(hwnd);
@@ -63,10 +73,14 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 }
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*lpCmdLine*/, int /*nShowCmd*/) {
+    // 0. High-resolution timer (1ms scheduler tick)
+    timeBeginPeriod(1);
+
     // 1. Single-Instance Check
     g_single_instance_mutex = CreateMutexW(nullptr, TRUE, L"Ultimakey_SingleInstance_Mutex");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         if (g_single_instance_mutex) CloseHandle(g_single_instance_mutex);
+        timeEndPeriod(1);
         return 0; // Already running
     }
 
@@ -78,6 +92,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
     if (!Engine::Instance().Initialize(hInstance)) {
         MessageBoxW(nullptr, L"Не удалось загрузить встроенные языковые словари!", L"Ошибка Ultimakey", MB_OK | MB_ICONERROR);
         if (g_single_instance_mutex) CloseHandle(g_single_instance_mutex);
+        timeEndPeriod(1);
         return 1;
     }
 
@@ -92,13 +107,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
 
     g_main_hwnd = CreateWindowExW(0, kMainClass, L"Ultimakey_Message_Window",
                                  0, 0, 0, 0, 0,
-                                 HWND_MESSAGE, nullptr, hInstance, nullptr);
+                                 nullptr, nullptr, hInstance, nullptr);
 
     if (!g_main_hwnd) {
         Logger::Instance().Write("Ultimakey: Ошибка создания окна сообщений");
         if (g_single_instance_mutex) CloseHandle(g_single_instance_mutex);
+        timeEndPeriod(1);
         return 1;
     }
+
+    Engine::Instance().SetMessageHwnd(g_main_hwnd);
 
     // 5. Create Tray Icon
     TrayIcon::Instance().Create(g_main_hwnd, hInstance);
@@ -109,6 +127,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
         MessageBoxW(nullptr, L"Не удалось установить хук клавиатуры!", L"Ошибка Ultimakey", MB_OK | MB_ICONERROR);
         TrayIcon::Instance().Destroy();
         if (g_single_instance_mutex) CloseHandle(g_single_instance_mutex);
+        timeEndPeriod(1);
         return 1;
     }
 
@@ -130,6 +149,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
         CloseHandle(g_single_instance_mutex);
     }
 
+    timeEndPeriod(1);
     return 0;
 }
 

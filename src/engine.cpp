@@ -33,6 +33,13 @@ static bool LoadResourceBlob(HINSTANCE hinstance, int res_id, const void*& out_p
     return (out_ptr != nullptr && out_size > 0);
 }
 
+static void CALLBACK WinEventProc(HWINEVENTHOOK /*hWinEventHook*/, DWORD event, HWND hwnd,
+                                  LONG /*idObject*/, LONG /*idChild*/, DWORD /*idEventThread*/, DWORD /*dwmsEventTime*/) {
+    if (event == EVENT_SYSTEM_FOREGROUND && hwnd) {
+        Engine::Instance().OnForegroundChanged(hwnd);
+    }
+}
+
 bool Engine::Initialize(HINSTANCE hinstance) {
     Logger::Instance().Write("Engine: Инициализация...");
 
@@ -63,30 +70,39 @@ bool Engine::Initialize(HINSTANCE hinstance) {
     initialized_ = words_ru_.IsLoaded() && words_en_.IsLoaded() &&
                    trigrams_ru_.IsLoaded() && trigrams_en_.IsLoaded();
 
+    fg_event_hook_ = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND,
+                                     nullptr, WinEventProc, 0, 0,
+                                     WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+    HWND cur_fg = GetForegroundWindow();
+    if (cur_fg) OnForegroundChanged(cur_fg);
+
     Logger::Instance().Write(initialized_ ? "Engine: Успешно инициализирован" : "Engine: Ошибка загрузки ресурсов");
     return initialized_;
 }
 
 void Engine::Shutdown() {
+    if (fg_event_hook_) {
+        UnhookWinEvent(fg_event_hook_);
+        fg_event_hook_ = nullptr;
+    }
     TextReplacer::Instance().Stop();
+    SecureInput::Instance().Shutdown();
 }
 
 static bool IsKeyDown(int vk) noexcept {
     return (GetAsyncKeyState(vk) & 0x8000) != 0;
 }
 
-void Engine::RefreshForeground() {
-    HWND hwnd = GetForegroundWindow();
+void Engine::OnForegroundChanged(HWND hwnd) {
+    if (!hwnd) return;
     if (hwnd == last_fg_hwnd_ && !front_process_.empty()) return;
 
-    if (hwnd != last_fg_hwnd_) {
-        buf_.Clear();
-        session_protected_.clear();
-    }
+    buf_.Clear();
+    session_protected_.clear();
     last_fg_hwnd_ = hwnd;
 
     DWORD pid = 0;
-    GetWindowThreadProcessId(hwnd, &pid);
+    front_tid_ = GetWindowThreadProcessId(hwnd, &pid);
     front_pid_ = pid;
 
     HANDLE hproc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
@@ -103,6 +119,13 @@ void Engine::RefreshForeground() {
         CloseHandle(hproc);
     } else {
         front_process_ = L"?";
+    }
+}
+
+void Engine::RefreshForeground() {
+    if (!last_fg_hwnd_) {
+        HWND hwnd = GetForegroundWindow();
+        if (hwnd) OnForegroundChanged(hwnd);
     }
 }
 
@@ -178,6 +201,10 @@ bool Engine::OnKeyDown(int vk, int scan, bool injected) {
     }
 
     const auto& s = Settings::Instance();
+
+    if (msg_hwnd_) {
+        KillTimer(msg_hwnd_, 1001);
+    }
 
     // CapsLock remap
     if (vk == VK_CAPITAL && s.caps_remap_enabled) {
@@ -379,16 +406,20 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
     if (mode == L"off") auto_trigger = false;
 
     if (auto_trigger && s.auto_enabled) {
-        HWND fg_at_boundary = last_fg_hwnd_;
-        // Small async delay (25ms) so physical space reaches app before Backspaces
-        std::thread([this, fg_at_boundary, mode]() {
-            Sleep(25);
-            if (GetForegroundWindow() != fg_at_boundary) return;
-            ConvertFromBuffer(false, mode == L"soft");
-        }).detach();
+        boundary_fg_ = last_fg_hwnd_;
+        boundary_mode_soft_ = (mode == L"soft");
+        if (msg_hwnd_) {
+            SetTimer(msg_hwnd_, 1001, 20, nullptr);
+        }
     }
 
     return false;
+}
+
+void Engine::OnBoundaryTimer() {
+    if (!initialized_ || paused_ || !Settings::Instance().auto_enabled) return;
+    if (last_fg_hwnd_ != boundary_fg_) return;
+    ConvertFromBuffer(false, boundary_mode_soft_);
 }
 
 bool Engine::ConvertBeforeReturn(std::wstring_view mode, bool shift) {
@@ -505,7 +536,9 @@ void Engine::ConvertFromBuffer(bool manual, bool soft) {
     if (!manual && last_fg_hwnd_ != GetForegroundWindow()) return;
 
     SetMuted();
-    Logger::Instance().Write(manual ? "Manual hotkey conversion" : "Auto conversion");
+    if (manual) {
+        Logger::Instance().Write("Manual hotkey conversion");
+    }
 
     TextReplacer::Instance().Replace(delete_count, converted + tail, false, [this](bool ok) {
         EndSyntheticFlight(ok);

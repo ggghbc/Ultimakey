@@ -11,6 +11,7 @@
 namespace Ultimakey {
 
 static HWND g_dialog_hwnd = nullptr;
+static HFONT g_dialog_font = nullptr;
 
 struct ControlItem {
     HWND hwnd;
@@ -175,7 +176,15 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     switch (msg) {
         case WM_CREATE: {
             HINSTANCE hinst = reinterpret_cast<LPCREATESTRUCT>(lparam)->hInstance;
-            HFONT hfont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+            if (!g_dialog_font) {
+                g_dialog_font = CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                                            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+                if (!g_dialog_font) {
+                    g_dialog_font = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+                }
+            }
+            HFONT hfont = g_dialog_font;
 
             g_controls.clear();
 
@@ -188,13 +197,13 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             TCITEMW tie = {};
             tie.mask = TCIF_TEXT;
             tie.pszText = const_cast<LPWSTR>(L"Основные");
-            TabCtrl_InsertItem(htab, 0, &tie);
+            SendMessageW(htab, TCM_INSERTITEMW, 0, reinterpret_cast<LPARAM>(&tie));
             tie.pszText = const_cast<LPWSTR>(L"Горячая клавиша");
-            TabCtrl_InsertItem(htab, 1, &tie);
+            SendMessageW(htab, TCM_INSERTITEMW, 1, reinterpret_cast<LPARAM>(&tie));
             tie.pszText = const_cast<LPWSTR>(L"Сниппеты");
-            TabCtrl_InsertItem(htab, 2, &tie);
+            SendMessageW(htab, TCM_INSERTITEMW, 2, reinterpret_cast<LPARAM>(&tie));
             tie.pszText = const_cast<LPWSTR>(L"Исключения");
-            TabCtrl_InsertItem(htab, 3, &tie);
+            SendMessageW(htab, TCM_INSERTITEMW, 3, reinterpret_cast<LPARAM>(&tie));
 
             auto add_ctrl = [&](HWND h, int tab_idx) {
                 SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(hfont), TRUE);
@@ -250,7 +259,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         case WM_NOTIFY: {
             auto nm = reinterpret_cast<LPNMHDR>(lparam);
             if (nm->idFrom == ID_TAB && nm->code == TCN_SELCHANGE) {
-                int cur_tab = TabCtrl_GetCurSel(nm->hwndFrom);
+                int cur_tab = static_cast<int>(SendMessageW(nm->hwndFrom, TCM_GETCURSEL, 0, 0));
                 SwitchTab(cur_tab);
             }
             break;
@@ -356,7 +365,7 @@ void SettingsDialog::Show(HWND parent_hwnd, HINSTANCE hinstance) {
                                    kClassName, L"Настройки Ultimakey",
                                    WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE,
                                    win_x, win_y, win_w, win_h,
-                                   parent_hwnd, nullptr, hinstance, nullptr);
+                                   nullptr, nullptr, hinstance, nullptr);
 
     SetForegroundWindow(g_dialog_hwnd);
 }

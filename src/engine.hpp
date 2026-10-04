@@ -28,6 +28,11 @@ public:
     void SetPaused(bool paused) noexcept { paused_ = paused; }
     bool IsPaused() const noexcept { return paused_; }
 
+    void OnForegroundChanged(HWND hwnd);
+    void OnBoundaryTimer();
+    DWORD CurrentForegroundThreadId() const noexcept { return front_tid_; }
+    void SetMessageHwnd(HWND hwnd) noexcept { msg_hwnd_ = hwnd; }
+
 private:
     Engine();
     ~Engine();
@@ -81,7 +86,13 @@ private:
 
     HWND last_fg_hwnd_ = nullptr;
     DWORD front_pid_ = 0;
+    DWORD front_tid_ = 0;
     std::wstring front_process_;
+
+    HWND msg_hwnd_ = nullptr;
+    HWINEVENTHOOK fg_event_hook_ = nullptr;
+    bool boundary_mode_soft_ = false;
+    HWND boundary_fg_ = nullptr;
 
     std::unordered_map<int, int64_t> swallowed_ups_;
     std::unordered_set<std::wstring> session_protected_;

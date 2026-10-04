@@ -52,7 +52,18 @@ LRESULT CALLBACK HookManager::LowLevelKeyboardProc(int nCode, WPARAM wParam, LPA
 
 LRESULT CALLBACK HookManager::LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= 0) {
-        Engine::Instance().OnMouseHook(nCode, wParam);
+        switch (wParam) {
+            case WM_LBUTTONDOWN:
+            case WM_RBUTTONDOWN:
+            case WM_MBUTTONDOWN:
+            case WM_NCLBUTTONDOWN:
+            case WM_NCRBUTTONDOWN:
+            case WM_NCMBUTTONDOWN:
+                Engine::Instance().OnMouseHook(nCode, wParam);
+                break;
+            default:
+                break;
+        }
     }
     return CallNextHookEx(Instance().mouse_hook_, nCode, wParam, lParam);
 }

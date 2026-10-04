@@ -19,9 +19,16 @@ public:
         root_offset_ = *reinterpret_cast<const uint16_t*>(bytes + 6);
 
         const wchar_t* alpha = reinterpret_cast<const wchar_t*>(bytes + 8);
-        char_map_.fill(0xFF);
+        ascii_map_.fill(0xFF);
+        cyr_map_.fill(0xFF);
+
         for (uint16_t i = 0; i < alpha_len; ++i) {
-            char_map_[static_cast<uint16_t>(alpha[i])] = static_cast<uint8_t>(i);
+            wchar_t c = alpha[i];
+            if (c < 128) {
+                ascii_map_[static_cast<uint8_t>(c)] = static_cast<uint8_t>(i);
+            } else if (c >= 0x0400 && c <= 0x045F) {
+                cyr_map_[c - 0x0400] = static_cast<uint8_t>(i);
+            }
         }
 
         size_t trans_offset = 8 + alpha_len * sizeof(wchar_t);
@@ -33,12 +40,18 @@ public:
         return true;
     }
 
+    inline uint8_t GetCharId(wchar_t c) const noexcept {
+        if (c < 128) return ascii_map_[c];
+        if (c >= 0x0400 && c <= 0x045F) return cyr_map_[c - 0x0400];
+        return 0xFF;
+    }
+
     bool Contains(std::wstring_view word) const noexcept {
         if (!is_loaded_ || word.empty()) return false;
         uint32_t node = root_offset_;
         const size_t len = word.length();
         for (size_t i = 0; i < len; ++i) {
-            uint8_t cid = char_map_[static_cast<uint16_t>(word[i])];
+            uint8_t cid = GetCharId(word[i]);
             if (cid == 0xFF) return false;
 
             bool found = false;
@@ -73,7 +86,8 @@ private:
     uint16_t root_offset_ = 0;
     uint32_t num_transitions_ = 0;
     const uint32_t* transitions_ = nullptr;
-    std::array<uint8_t, 65536> char_map_{};
+    std::array<uint8_t, 128> ascii_map_{};
+    std::array<uint8_t, 96> cyr_map_{};
 };
 
 } // namespace Ultimakey

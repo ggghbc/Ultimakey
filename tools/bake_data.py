@@ -211,46 +211,66 @@ def verify_dawg(blob, word_list):
     return True
 
 # -------------------------------------------------------------
-# Trigrams Serialization
+# Trigrams Serialization (Compact 32-bit / Cache-friendly)
 # -------------------------------------------------------------
 
 def serialize_trigrams(trigrams_dict):
     """
-    Format:
-      uint32_t magic = 0x54524947 ('TRIG')
+    Format (32-bit compact entry):
+      uint32_t magic = 0x54524732 ('TRG2')
+      uint16_t alpha_len
+      wchar_t  alphabet[alpha_len]
       uint32_t count
       entries:
-        wchar_t c0, c1, c2, c3 (c3 is null or pad) = 8 bytes
-        float   score = 4 bytes
-        (total 12 bytes per entry)
-    Sorted lexicographically by the 3 wchar_t characters.
+        uint32_t packed (18 bits char keys [3 x 6-bit], 14 bits fixed-point score)
+    Sorted strictly by (entry >> 14).
     """
-    items = sorted(trigrams_dict.items(), key=lambda x: x[0])
-    out = bytearray(b'TRIG')
-    out += struct.pack('<I', len(items))
-    for tri, score in items:
-        # tri has 3 characters
-        w0 = ord(tri[0]) if len(tri) > 0 else 0
-        w1 = ord(tri[1]) if len(tri) > 1 else 0
-        w2 = ord(tri[2]) if len(tri) > 2 else 0
-        out += struct.pack('<HHHhf', w0, w1, w2, 0, float(score))
+    chars = set()
+    for tri in trigrams_dict.keys():
+        chars.update(tri)
+    
+    alphabet = [' '] + sorted([c for c in chars if c != ' '])
+    assert len(alphabet) <= 64, f"Alphabet too large for 6 bits: {len(alphabet)}"
+    char_to_id = {c: i for i, c in enumerate(alphabet)}
+
+    entries = []
+    for tri, score in trigrams_dict.items():
+        if len(tri) != 3: continue
+        id0 = char_to_id.get(tri[0], 0)
+        id1 = char_to_id.get(tri[1], 0)
+        id2 = char_to_id.get(tri[2], 0)
+        prefix = (id0 << 12) | (id1 << 6) | id2
+        mag = min(16383, max(0, int(round(-float(score) * 1000.0))))
+        packed = (prefix << 14) | (mag & 0x3FFF)
+        entries.append(packed)
+
+    entries.sort(key=lambda x: x >> 14)
+
+    out = bytearray(b'TRG2')
+    out += struct.pack('<H', len(alphabet))
+    for c in alphabet:
+        out += struct.pack('<H', ord(c))
+    out += struct.pack('<I', len(entries))
+    for e in entries:
+        out += struct.pack('<I', e)
     return bytes(out)
 
 # -------------------------------------------------------------
-# Typo Rules Serialization
+# Typo Rules Serialization (Zero-Allocation Flat RCDATA Pool)
 # -------------------------------------------------------------
 
 def serialize_typo_rules(typo_dict):
     """
-    typo_dict is {'en': {...}, 'ru': {...}}
     Format:
-      uint32_t magic = 0x5459504F ('TYPO')
+      uint32_t magic = 0x54595032 ('TYP2')
       uint32_t count
-      for each:
-        uint16_t typo_len (chars)
-        wchar_t  typo[typo_len]
-        uint16_t fix_len (chars)
-        wchar_t  fix[fix_len]
+      struct TypoIndex {
+        uint32_t typo_offset; // in wchar_t
+        uint16_t typo_len;
+        uint32_t fix_offset;  // in wchar_t
+        uint16_t fix_len;
+      } index[count];
+      wchar_t pool[]; // packed wchar_t characters
     Sorted lexicographically by typo.
     """
     all_rules = {}
@@ -259,15 +279,26 @@ def serialize_typo_rules(typo_dict):
             all_rules[k] = v
 
     items = sorted(all_rules.items(), key=lambda x: x[0])
-    out = bytearray(b'TYPO')
-    out += struct.pack('<I', len(items))
+    indices = []
+    pool = []
+
     for typo, fix in items:
-        out += struct.pack('<H', len(typo))
-        for c in typo:
-            out += struct.pack('<H', ord(c))
-        out += struct.pack('<H', len(fix))
-        for c in fix:
-            out += struct.pack('<H', ord(c))
+        typo_offset = len(pool)
+        typo_len = len(typo)
+        pool.extend([ord(c) for c in typo])
+
+        fix_offset = len(pool)
+        fix_len = len(fix)
+        pool.extend([ord(c) for c in fix])
+
+        indices.append((typo_offset, typo_len, fix_offset, fix_len))
+
+    out = bytearray(b'TYP2')
+    out += struct.pack('<I', len(items))
+    for t_off, t_len, f_off, f_len in indices:
+        out += struct.pack('<IHIH', t_off, t_len, f_off, f_len)
+    for c in pool:
+        out += struct.pack('<H', c)
     return bytes(out)
 
 # -------------------------------------------------------------

@@ -143,9 +143,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
 
     // 7. Trim cold pages from working set (< 1 MB RAM) and enter Message Loop
     SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
+    Logger::Instance().Write("Main: Вход в цикл сообщений");
 
     MSG msg = {};
-    while (GetMessageW(&msg, nullptr, 0, 0)) {
+    BOOL bRet;
+    while ((bRet = GetMessageW(&msg, nullptr, 0, 0)) != 0) {
+        if (bRet == -1) {
+            Logger::Instance().Write("Main: Ошибка GetMessageW: " + std::to_string(GetLastError()));
+            break;
+        }
         HWND dlg = SettingsDialog::GetHwnd();
         if (dlg && IsDialogMessageW(dlg, &msg)) {
             continue;
@@ -153,6 +159,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
+    Logger::Instance().Write("Main: Выход из цикла сообщений, bRet=" + std::to_string(bRet) + ", msg=" + std::to_string(msg.message));
 
     // 8. Cleanup & Shutdown
     Logger::Instance().Write("Ultimakey: Завершение работы");

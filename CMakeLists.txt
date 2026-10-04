@@ -71,6 +71,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -static-libstdc++
         -s
         -Wl,--gc-sections
+        -Wl,--dynamicbase
+        -Wl,--nxcompat
+        -Wl,--high-entropy-va
+        -Wl,--build-id
     )
 elseif(MSVC)
     target_compile_options(Ultimakey PRIVATE

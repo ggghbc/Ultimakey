@@ -44,12 +44,22 @@ std::vector<HKL> LayoutManager::InstalledLayouts() const {
 }
 
 HKL LayoutManager::CurrentHkl() const {
-    DWORD tid = Engine::Instance().CurrentForegroundThreadId();
-    if (tid != 0) return GetKeyboardLayout(tid);
     HWND fg = GetForegroundWindow();
-    if (!fg) return GetKeyboardLayout(0);
-    DWORD thread_id = GetWindowThreadProcessId(fg, nullptr);
-    return GetKeyboardLayout(thread_id);
+    if (fg) {
+        DWORD thread_id = GetWindowThreadProcessId(fg, nullptr);
+        if (thread_id) {
+            HKL h = GetKeyboardLayout(thread_id);
+            if (h) return h;
+        }
+    }
+    DWORD tid = Engine::Instance().CurrentForegroundThreadId();
+    if (tid != 0) {
+        HKL h = GetKeyboardLayout(tid);
+        if (h) return h;
+    }
+    HKL h = GetKeyboardLayout(0);
+    if (h) return h;
+    return cached_en_hkl_ ? cached_en_hkl_ : (HKL)0x04090409;
 }
 
 Script LayoutManager::CurrentScript() const {
@@ -66,7 +76,10 @@ bool LayoutManager::CurrentIsCyrillic() const {
 }
 
 bool LayoutManager::RequestLayout(HWND hwnd, HKL hkl) {
-    if (!hwnd || !hkl) return false;
+    if (!hkl) return false;
+    HWND fg = GetForegroundWindow();
+    if (!hwnd) hwnd = fg;
+    if (!hwnd) return false;
 
     DWORD target_tid = GetWindowThreadProcessId(hwnd, nullptr);
     DWORD current_tid = GetCurrentThreadId();
@@ -80,8 +93,16 @@ bool LayoutManager::RequestLayout(HWND hwnd, HKL hkl) {
         ActivateKeyboardLayout(hkl, KLF_SETFORPROCESS);
     }
 
-    // Post to top-level window (asynchronous, non-blocking)
+    // Post to top-level window with both wParam=0 and wParam=1 (INPUTLANGCHANGE_SYSCHARSET)
     PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
+    PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
+
+    // Post to root window if different
+    HWND root = GetAncestor(hwnd, GA_ROOT);
+    if (root && root != hwnd) {
+        PostMessageW(root, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
+        PostMessageW(root, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
+    }
 
     // Also post to specific focused child control if available
     if (target_tid) {
@@ -89,6 +110,22 @@ bool LayoutManager::RequestLayout(HWND hwnd, HKL hkl) {
         gti.cbSize = sizeof(gti);
         if (GetGUIThreadInfo(target_tid, &gti) && gti.hwndFocus && gti.hwndFocus != hwnd) {
             PostMessageW(gti.hwndFocus, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
+            PostMessageW(gti.hwndFocus, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
+        }
+    }
+
+    // Also post to live foreground window if different from hwnd
+    if (fg && fg != hwnd && fg != root) {
+        DWORD fg_tid = GetWindowThreadProcessId(fg, nullptr);
+        PostMessageW(fg, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
+        PostMessageW(fg, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
+        if (fg_tid) {
+            GUITHREADINFO gti = {};
+            gti.cbSize = sizeof(gti);
+            if (GetGUIThreadInfo(fg_tid, &gti) && gti.hwndFocus && gti.hwndFocus != fg) {
+                PostMessageW(gti.hwndFocus, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
+                PostMessageW(gti.hwndFocus, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
+            }
         }
     }
 
@@ -103,8 +140,8 @@ bool LayoutManager::SelectLayout(bool cyrillic) {
     }
 
     if (!target) return false;
-    HWND fg = Engine::Instance().LastForegroundHwnd();
-    if (!fg) fg = GetForegroundWindow();
+    HWND fg = GetForegroundWindow();
+    if (!fg) fg = Engine::Instance().LastForegroundHwnd();
     return RequestLayout(fg, target);
 }
 

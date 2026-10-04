@@ -127,9 +127,9 @@ void Engine::OnForegroundChanged(HWND hwnd) {
 }
 
 void Engine::RefreshForeground() {
-    if (!last_fg_hwnd_) {
-        HWND hwnd = GetForegroundWindow();
-        if (hwnd) OnForegroundChanged(hwnd);
+    HWND hwnd = GetForegroundWindow();
+    if (hwnd && hwnd != last_fg_hwnd_) {
+        OnForegroundChanged(hwnd);
     }
 }
 
@@ -452,20 +452,26 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
     bool auto_trigger = (vk == VK_SPACE && s.trigger_space) || (vk == VK_TAB && s.trigger_tab);
     if (current_app_mode_ == AppMode::Off) auto_trigger = false;
 
-    if (auto_trigger && s.auto_enabled && !current.empty() && !muted_) {
-        auto prop = AutoProposal(current, current_app_mode_ == AppMode::Soft, false);
-        if (prop.has_value() && anti_.Allow(current, prop->text) && !SecureInput::Instance().CachedIsPassword(last_fg_hwnd_)) {
-            SetMuted();
-            Logger::Instance().Write("AutoProposal: мгновенная конверсия по разделителю");
-            std::wstring repl = prop->text + std::wstring(ws);
-            TextReplacer::Instance().Replace(static_cast<int>(current.length()), repl, false, [this](bool ok) {
-                EndSyntheticFlight(ok);
-            });
-            buf_.ApplyConversion(prop->text);
-            buf_.Boundary(ws);
-            LayoutManager::Instance().SelectLayout(prop->to_cyrillic);
-            SoundEffect::Instance().PlaySwitchSound();
-            return true;
+    if (auto_trigger && s.auto_enabled && !current.empty()) {
+        if (muted_) {
+            MutedStuck();
+        }
+        if (!muted_) {
+            auto prop = AutoProposal(current, current_app_mode_ == AppMode::Soft, false);
+            if (prop.has_value() && anti_.Allow(current, prop->text) && !SecureInput::Instance().CachedIsPassword(last_fg_hwnd_)) {
+                SetMuted();
+                Logger::Instance().Write(L"AutoProposal: мгновенная конверсия по разделителю '" +
+                                         std::wstring(current) + L"' -> '" + prop->text + L"'");
+                std::wstring repl = prop->text + std::wstring(ws);
+                TextReplacer::Instance().Replace(static_cast<int>(current.length()), repl, false, [this](bool ok) {
+                    EndSyntheticFlight(ok);
+                });
+                buf_.ApplyConversion(prop->text);
+                buf_.Boundary(ws);
+                LayoutManager::Instance().SelectLayout(prop->to_cyrillic);
+                SoundEffect::Instance().PlaySwitchSound();
+                return true;
+            }
         }
     }
 
@@ -510,8 +516,12 @@ bool Engine::ConvertBeforeReturn(bool shift) {
 }
 
 std::optional<Engine::Proposal> Engine::AutoProposal(std::wstring_view word, bool soft, bool completed) {
-    Keymap::Instance().RefreshDynamicIfNeeded();
-    if (LayoutManager::Instance().CurrentScript() == Script::Other) return std::nullopt;
+    Script cur_script = LayoutManager::Instance().CurrentScript();
+    if (cur_script == Script::Other) {
+        bool cyr = HasCyrillic(word);
+        bool lat = HasLatin(word);
+        if (!cyr && !lat) return std::nullopt;
+    }
 
     if (!session_protected_.empty()) {
         wchar_t low_buf[64];
@@ -680,10 +690,10 @@ void Engine::SetMuted() {
 }
 
 void Engine::OnSyntheticFlightFinished(bool ok) {
-    if (!ok || in_flight_real_keys_ > 0) {
+    if (!ok) {
         buf_.Clear();
-        in_flight_real_keys_ = 0;
     }
+    in_flight_real_keys_ = 0;
     muted_ = false;
     if (pending_context_clear_) ApplyContextClear();
     if (pending_manual_) {

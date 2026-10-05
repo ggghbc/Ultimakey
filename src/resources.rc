@@ -32,7 +32,7 @@ BEGIN
             VALUE "FileDescription",  "Ultimakey"
             VALUE "FileVersion",      "1.0.0.0"
             VALUE "InternalName",     "Ultimakey"
-            VALUE "LegalCopyright",   "Copyright (C) 2026 Ultimakey Team"
+            VALUE "LegalCopyright",   "Copyright (C) 2026 ggghbc"
             VALUE "OriginalFilename", "Ultimakey.exe"
             VALUE "ProductName",      "Ultimakey"
             VALUE "ProductVersion",   "1.0.0.0"

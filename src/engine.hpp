@@ -30,7 +30,6 @@ public:
     bool IsPaused() const noexcept { return paused_; }
 
     void OnForegroundChanged(HWND hwnd);
-    void OnBoundaryTimer();
     DWORD CurrentForegroundThreadId() const noexcept { return front_tid_; }
     HWND LastForegroundHwnd() const noexcept { return last_fg_hwnd_; }
     void SetMessageHwnd(HWND hwnd) noexcept;
@@ -46,7 +45,6 @@ private:
     bool OnBoundary(int vk, bool command, bool shift);
     bool ConvertBeforeReturn(bool shift);
     bool CheckRecentSnippet(std::wstring_view ws = {});
-    bool CheckSnippet(std::wstring_view word);
     bool CheckTypo(std::wstring_view word, std::wstring_view ws);
 
     struct Proposal {
@@ -65,7 +63,6 @@ private:
 
     bool MutedStuck();
     void SetMuted();
-    void EndSyntheticFlight(bool ok);
 
     Dawg words_ru_;
     Dawg words_en_;
@@ -95,10 +92,16 @@ private:
 
     HWND msg_hwnd_ = nullptr;
     HWINEVENTHOOK fg_event_hook_ = nullptr;
-    bool boundary_mode_soft_ = false;
-    HWND boundary_fg_ = nullptr;
-    std::atomic<uint32_t> boundary_gen_{0};
-    uint32_t boundary_gen_at_start_ = 0;
+
+    struct AutoUndoState {
+        std::wstring original;
+        std::wstring converted;
+        std::wstring tail;
+        bool to_cyrillic = false;
+        double timestamp = 0.0;
+        HWND hwnd = nullptr;
+    };
+    std::optional<AutoUndoState> last_auto_undo_;
 
     AppMode current_app_mode_ = AppMode::Default;
 

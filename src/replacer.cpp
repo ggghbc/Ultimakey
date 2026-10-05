@@ -25,11 +25,10 @@ void TextReplacer::Stop() {
     }
 }
 
-void TextReplacer::Replace(int delete_count, std::wstring_view text, bool then_return,
-                           std::function<void(bool)> completion) {
+void TextReplacer::Replace(int delete_count, std::wstring_view text, bool then_return) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        queue_.push(Job{delete_count, std::wstring(text), then_return, std::move(completion)});
+        queue_.push(Job{delete_count, std::wstring(text), then_return});
     }
     cv_.notify_one();
 }
@@ -48,12 +47,9 @@ void TextReplacer::WorkerLoop() {
         }
 
         PerformReplace(job.delete_count, job.text, job.then_return);
-        bool success = true;
 
         if (msg_hwnd_) {
-            PostMessageW(msg_hwnd_, WM_APP + 102, success ? 1 : 0, 0);
-        } else if (job.completion) {
-            job.completion(success);
+            PostMessageW(msg_hwnd_, WM_APP + 102, 1, 0);
         }
     }
 }

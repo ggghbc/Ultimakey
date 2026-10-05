@@ -219,8 +219,8 @@ wchar_t Keymap::PeeledMark(wchar_t p, bool to_cyrillic) const noexcept {
 
 std::wstring Keymap::SmartConvert(std::wstring_view word, bool to_cyrillic,
                                   const std::function<bool(std::wstring_view)>& is_valid_target) const {
+    std::wstring full = Convert(word, to_cyrillic);
     if (is_valid_target) {
-        std::wstring full = Convert(word, to_cyrillic);
         wchar_t buf[64];
         std::wstring heap;
         std::wstring_view lower;
@@ -242,7 +242,7 @@ std::wstring Keymap::SmartConvert(std::wstring_view word, bool to_cyrillic,
     }
 
     if (end == word.length()) {
-        return Convert(word, to_cyrillic);
+        return full;
     }
 
     std::wstring result = Convert(word.substr(0, end), to_cyrillic);

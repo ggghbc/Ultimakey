@@ -15,8 +15,7 @@ class TextReplacer {
 public:
     static TextReplacer& Instance();
 
-    void Replace(int delete_count, std::wstring_view text, bool then_return = false,
-                 std::function<void(bool)> completion = nullptr);
+    void Replace(int delete_count, std::wstring_view text, bool then_return = false);
 
     void Stop();
     void SetMessageHwnd(HWND hwnd) noexcept { msg_hwnd_ = hwnd; }
@@ -32,7 +31,6 @@ private:
         int delete_count;
         std::wstring text;
         bool then_return;
-        std::function<void(bool)> completion;
     };
 
     std::queue<Job> queue_;

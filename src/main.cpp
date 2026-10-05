@@ -15,14 +15,7 @@ static HANDLE g_single_instance_mutex = nullptr;
 
 static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
-        case WM_TIMER: {
-            if (wparam == 1001) {
-                KillTimer(hwnd, 1001);
-                Engine::Instance().OnBoundaryTimer();
-                return 0;
-            }
-            break;
-        }
+
 
         case WM_APP + 102: {
             Engine::Instance().OnSyntheticFlightFinished(wparam != 0);

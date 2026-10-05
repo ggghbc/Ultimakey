@@ -28,26 +28,19 @@ void Logger::Write(std::string_view msg) {
     if (!Settings::Instance().write_log) return;
 
     std::lock_guard<std::mutex> lock(g_log_mutex);
-    bool need_bom = false;
-    {
-        std::ifstream check(log_path_.c_str(), std::ios::binary | std::ios::ate);
-        if (!check.is_open() || check.tellg() == 0) {
-            need_bom = true;
-        }
-    }
-
     std::ofstream f(log_path_.c_str(), std::ios::out | std::ios::app | std::ios::binary);
     if (!f.is_open()) return;
 
     f.seekp(0, std::ios::end);
-    if (f.tellp() > 512 * 1024) {
+    auto sz = f.tellp();
+    if (sz > 512 * 1024) {
         f.close();
         f.open(log_path_.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
         if (!f.is_open()) return;
         static const unsigned char bom[] = {0xEF, 0xBB, 0xBF};
         f.write(reinterpret_cast<const char*>(bom), sizeof(bom));
         f << "[Log rotated: size exceeded 512 KB]\n";
-    } else if (need_bom) {
+    } else if (sz == 0) {
         static const unsigned char bom[] = {0xEF, 0xBB, 0xBF};
         f.write(reinterpret_cast<const char*>(bom), sizeof(bom));
     }

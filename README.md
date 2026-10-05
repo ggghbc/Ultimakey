@@ -166,4 +166,4 @@ Example configuration structure:
 
 ## License
 
-This project is licensed under the MIT License. You are free to use, modify, and distribute this software for personal and commercial purposes.
+[MIT License](./LICENSE). Free to use, modify, and distribute.

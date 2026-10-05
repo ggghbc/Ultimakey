@@ -12,7 +12,9 @@ IDI_APP_ICON_ON  ICON "res/app_on.ico"
 IDI_APP_ICON_OFF ICON "res/app_off.ico"
 
 // Manifest
+#ifndef MSVC_BUILD
 1 24 "app.manifest"
+#endif
 
 // Version Information
 VS_VERSION_INFO VERSIONINFO
@@ -29,13 +31,14 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName",      "Ultimakey Project"
-            VALUE "FileDescription",  "Ultimakey"
+            VALUE "FileDescription",  "Ultimakey - Automatic Keyboard Layout Switcher"
             VALUE "FileVersion",      "1.0.0.0"
             VALUE "InternalName",     "Ultimakey"
-            VALUE "LegalCopyright",   "Copyright (C) 2026 ggghbc"
+            VALUE "LegalCopyright",   "Copyright (C) 2026 Ultimakey Contributors. Released under MIT License."
             VALUE "OriginalFilename", "Ultimakey.exe"
             VALUE "ProductName",      "Ultimakey"
             VALUE "ProductVersion",   "1.0.0.0"
+            VALUE "Comments",         "Ultra-fast, lightweight keyboard layout switcher for Windows"
         END
     END
     BLOCK "VarFileInfo"

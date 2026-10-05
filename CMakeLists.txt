@@ -80,13 +80,17 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Wl,--build-id
     )
 elseif(MSVC)
+    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -DMSVC_BUILD")
+    add_compile_definitions(MSVC_BUILD)
+    set_property(TARGET Ultimakey PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_compile_definitions(Ultimakey PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_compile_options(Ultimakey PRIVATE
+        /utf-8
         /O2
         /Oi
         /GL
         /Gy
-        /GR-
-        /EHs-c-
+        /EHsc
         /W4
         /permissive-
     )
@@ -96,4 +100,5 @@ elseif(MSVC)
         /OPT:ICF
         /SUBSYSTEM:WINDOWS
     )
+    target_sources(Ultimakey PRIVATE src/app.manifest)
 endif()

@@ -47,7 +47,7 @@ private:
     bool ConvertBeforeReturn(bool shift);
     bool CheckRecentSnippet(std::wstring_view ws = {});
     bool CheckSnippet(std::wstring_view word);
-    bool CheckTypo(std::wstring_view word);
+    bool CheckTypo(std::wstring_view word, std::wstring_view ws);
 
     struct Proposal {
         std::wstring text;

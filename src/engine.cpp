@@ -371,7 +371,7 @@ bool Engine::CheckSnippet(std::wstring_view word) {
     return CheckRecentSnippet();
 }
 
-bool Engine::CheckTypo(std::wstring_view word) {
+bool Engine::CheckTypo(std::wstring_view word, std::wstring_view ws) {
     const auto& s = Settings::Instance();
     if (!s.typofix_enabled || word.length() < 3) return false;
 
@@ -392,16 +392,35 @@ bool Engine::CheckTypo(std::wstring_view word) {
     std::wstring_view fix = typo_rules_.FindCorrection(lower);
     if (!fix.empty()) {
         SetMuted();
-        Logger::Instance().Write("TypoFix: автоисправление опечатки");
         std::wstring repl(fix);
+        // Preserve case: capitalize if original word was capitalized
         if (word.length() > 0 && ((word[0] >= L'A' && word[0] <= L'Z') || (word[0] >= 0x0410 && word[0] <= 0x042F))) {
             repl[0] = ToUpper(repl[0]);
         }
-        int del = static_cast<int>(word.length());
-        TextReplacer::Instance().Replace(del, repl, false, [this](bool ok) {
+        // If entire word was UPPERCASE, uppercase the replacement
+        bool all_caps = word.length() >= 2;
+        if (all_caps) {
+            for (wchar_t c : word) {
+                if ((c >= L'a' && c <= L'z') || (c >= 0x0430 && c <= 0x044F)) {
+                    all_caps = false;
+                    break;
+                }
+            }
+        }
+        if (all_caps) {
+            for (size_t i = 0; i < repl.length(); ++i) {
+                repl[i] = ToUpper(repl[i]);
+            }
+        }
+
+        int del_len = static_cast<int>(word.length());
+        std::wstring full_repl = repl + std::wstring(ws);
+        TextReplacer::Instance().Replace(del_len, full_repl, false, [this](bool ok) {
             EndSyntheticFlight(ok);
         });
         buf_.ApplyConversion(repl);
+        buf_.Boundary(ws);
+        SoundEffect::Instance().PlaySwitchSound();
         return true;
     }
     return false;
@@ -428,9 +447,8 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
     }
 
     // Check typo fix
-    if (!current.empty() && CheckTypo(current)) {
-        buf_.Boundary(ws);
-        return false;
+    if (!current.empty() && CheckTypo(current, ws)) {
+        return true;
     }
 
     // Double space to period

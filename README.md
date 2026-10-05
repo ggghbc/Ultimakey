@@ -1,8 +1,8 @@
 # Ultimakey
 
-Ultimakey is an ultra-lightweight, high-performance automatic keyboard layout switcher and text utility designed for Windows 10/11 (with backward compatibility for Windows 7/8.1).
+Ultimakey is an ultra-lightweight, high-performance utility that switches keyboard layouts between RU and EN while typing. Designed for Windows 10/11 (with backward compatibility for Windows 7/8.1).
 
-Built from the ground up in modern C++20 using zero-allocation data structures, zero-copy compressed graphs, and demoscene-grade performance optimizations, Ultimakey delivers instantaneous layout switching with virtually zero CPU usage and less than 2 MB of RAM consumption.
+Ultimakey delivers instantaneous layout switching with virtually zero CPU usage and less than 3 MB of RAM consumption.
 
 ---
 
@@ -10,21 +10,28 @@ Built from the ground up in modern C++20 using zero-allocation data structures, 
 
 | Metric | Ultimakey (C++20) | Typical Alternatives (.NET / Electron) |
 | :--- | :--- | :--- |
-| RAM Footprint | ~1.8 MB (trims to < 1 MB on idle) | 50 to 150+ MB |
+| RAM Footprint | ~2.3 MB (trims to < 1 MB on idle) | 50 to 150+ MB |
 | Idle CPU Usage | 0.00% | 0.5% to 2.0% |
 | Input Hook Overhead | < 2-5 microseconds | 1 to 15 milliseconds |
-| Binary Size | ~5.4 MB (fully self-contained executable) | 30 to 80+ MB |
+| Binary Size | ~4.4 MB (fully self-contained executable) | 30 to 80+ MB |
 | External Dependencies | None (embedded PE RCDATA resources) | Multiple external files / runtimes |
 | Cold Start Time | < 5 milliseconds | 500 to 2000 milliseconds |
 
 ---
+
+## WARNING
+Unfortunately, one of the antivirus programs on **[VirusTotal](https://www.virustotal.com/gui/file/2aaa3b45cc370e3bec9a8e5eb1727a0f252115a4e729e2782fd92279d8e0e8fc?nocache=1)** reports this app as a trojan (*Trojan:Win32/Wacatac.B!ml*). You'll have to trust that the app is clean and won't harm your computer.
+
+Therefore, the first time you download a file from a browser, Windows may display a warning: "Windows protected your PC... Unknown publisher."
+
+You just need to click "More details" → "Run anyway."
+
 
 ## Features
 
 ### Intelligent Automatic Layout Switching
 - Trigram frequency evaluation (over 11,400 Russian and 8,100 English trigrams) combined with instantaneous dictionary lookups (over 163,000 Russian and 59,500 English words).
 - Triggered seamlessly upon word boundaries: Space, Enter (with pre-conversion before newline delivery), or Tab.
-- Typing rhythm tracking with anti-resonance guard: a 1.5-second suppression window prevents ping-pong loops when the user intentionally overrides or corrects a word.
 - Smart punctuation and prefix handling: automatically handles words typed with trailing punctuation or layout-dependent letters (such as Russian letters located on English punctuation keys).
 
 ### Manual Conversion Hotkeys
@@ -61,21 +68,6 @@ Built from the ground up in modern C++20 using zero-allocation data structures, 
 
 ---
 
-## Technical Architecture
-
-- **Zero-Copy DAWG (Directed Acyclic Word Graph):**
-  Over 220,000 words across Russian and English are compiled into compact directed acyclic word graphs (~3.6 MB combined in raw binary representation). Word validation executes in O(L) time, where L is the length of the query word, with zero dynamic heap allocations during search operations.
-- **64-bit Trigram Hashing:**
-  Frequency lookup tables are organized by packed 64-bit trigram hashes, pre-sorted for logarithmic binary search directly inside mapped memory.
-- **Low-Level Hook Isolation:**
-  The `WH_KEYBOARD_LL` hook performs only critical hot-path filtering. UI Automation queries, selection reading, and synthetic input simulation (`SendInput`) run asynchronously with synthetic event markers (`0x4B424F4F`) to eliminate re-entrancy and input lag.
-- **Embedded PE Resources:**
-  All dictionaries, trigram tables, typo databases, application manifests, and tray icons are compiled into the PE `.rsrc` section. The output is a single, zero-dependency executable.
-- **Configuration Storage:**
-  Persisted in `%APPDATA%\Ultimakey\settings.json`. If no configuration exists, sensible defaults are generated automatically on first startup.
-
----
-
 ## Building from Source
 
 ### Prerequisites
@@ -96,6 +88,8 @@ Built from the ground up in modern C++20 using zero-allocation data structures, 
    python tools/bake_data.py
    ```
    *Note: Precompiled binary datasets are already included in `src/data/`.*
+
+   *[Datasets based on this dictionaries.](https://github.com/ggghbc/DictionaryAndTrigramGenerator)*
 
 3. **Configure and build using CMake (MinGW-w64 example):**
    ```bash
@@ -127,6 +121,13 @@ When launched, Ultimakey runs quietly in the Windows notification area (System T
 - `Pause/Break`: Convert the last typed word or selection between Russian and English layouts.
 - `CapsLock`: Instant layout switch (when CapsLock Remap is enabled).
 
+### Autorun
+When the user checks the "Autorun" box in the settings, the program writes the path to the current location of Ultimakey.exe to the registry.
+
+If the user launches it from the `Downloads` folder and enables autorun, but then moves the file to another location, autorun will fail.
+
+It is recommended to prompt users to place Ultimakey.exe in a permanent folder (e.g., `C:\Tools\Ultimakey\` or the user's home folder).
+
 ---
 
 ## Configuration File
@@ -136,33 +137,10 @@ The configuration file is located at:
 %APPDATA%\Ultimakey\settings.json
 ```
 
-Example configuration structure:
-```json
-{
-  "general": {
-    "auto_switch": true,
-    "play_sound": false,
-    "double_space_period": false,
-    "caps_remap": false,
-    "autostart": true
-  },
-  "hotkeys": {
-    "convert_last": "Pause",
-    "convert_selection": "Shift+Pause"
-  },
-  "app_rules": [
-    { "process": "Code.exe", "mode": "soft" },
-    { "process": "cmd.exe", "mode": "off" },
-    { "process": "powershell.exe", "mode": "off" },
-    { "process": "WindowsTerminal.exe", "mode": "off" }
-  ],
-  "snippets": [
-    { "trigger": "!email", "replacement": "example@domain.com" }
-  ]
-}
-```
-
 ---
+
+## Special Thanks
+### To [keyboop](https://github.com/iffuno/keyboop) project for idea and inspiration.
 
 ## License
 

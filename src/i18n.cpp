@@ -29,9 +29,10 @@ static const wchar_t* const kStrings[static_cast<size_t>(StrId::Count)][2] = {
     // Tabs
     { L"General", L"Основные" },
     { L"Hotkeys", L"Горячие клавиши" },
-    { L"Auto-replace", L"Автозамена текста" },
+    { L"Auto-replace", L"Автозамена" },
     { L"App Exceptions", L"Исключения программ" },
     { L"Word Exceptions", L"Исключения слов" },
+    { L"User Dictionary", L"Словарь пользователя" },
     { L"About", L"О программе" },
 
     // Tab 0: General
@@ -85,7 +86,18 @@ static const wchar_t* const kStrings[static_cast<size_t>(StrId::Count)][2] = {
     { L"Word or file extension (e.g., exe or torrent):", L"Слово или расширение файла (например, exe или torrent):" },
     { L"Words and file extensions in this list will never be\nautomatically converted by Ultimakey to another layout.", L"Любые слова и форматы файлов из этого списка программа никогда не будет\nавтоматически переводить на другую раскладку клавиатуры." },
 
-    // Tab 5: About
+    // Tab 5: User Dictionary (Positive List)
+    { L" Words that are always recognized ", L" Слова, которые всегда распознаются " },
+    { L"Custom words list (select to inspect or delete):", L"Список слов пользователя (выберите для просмотра или удаления):" },
+    { L"Select a word\non the left\nto delete it", L"Выберите слово\nв списке слева,\nчтобы удалить его" },
+    { L" Add Word to User Dictionary ", L" Добавить слово в словарь пользователя " },
+    { L"Word in correct layout (e.g., дискорд or docker):", L"Слово в правильной раскладке (например, дискорд или docker):" },
+    { L"Words in this list are guaranteed to be recognized as valid.\nIf mistyped in the opposite layout, they will always convert automatically.", L"Слова из этого списка гарантированно распознаются как правильные.\nПри вводе в чужой раскладке они всегда автоматически переключатся." },
+
+    // Search
+    { L"Search…", L"Поиск…" },
+
+    // Tab 6: About
     { L"Ultimakey 1.0.0", L"Ultimakey 1.0.0" },
     { L"Lightweight, ultra-fast and private automatic keyboard layout switcher for Windows.\nOpen-source and runs 100% offline with zero telemetry.", L"Легкий, быстрый и конфиденциальный автоматический переключатель раскладки клавиатуры.\nОткрытый исходный код, работает полностью офлайн без телеметрии." },
     { L" Project & Author ", L" Проект и автор " },

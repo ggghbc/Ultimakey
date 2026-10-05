@@ -59,32 +59,39 @@ void TextReplacer::WorkerLoop() {
 }
 
 void TextReplacer::PerformReplace(int delete_count, const std::wstring& text, bool then_return) {
-    // Settle pause (5 ms with timeBeginPeriod(1)) to let target app consume keystrokes
-    Sleep(5);
+    // Settle pause (8 ms with timeBeginPeriod(1)) to let target app consume trigger key
+    Sleep(8);
 
     // 1. Backspaces
     if (delete_count > 0) {
-        INPUT back_stack[64];
-        INPUT* back_inputs = back_stack;
-        std::vector<INPUT> back_heap;
-        size_t back_needed = static_cast<size_t>(delete_count) * 2;
-        if (back_needed > 64) {
-            back_heap.resize(back_needed);
-            back_inputs = back_heap.data();
+        if (delete_count <= 4) {
+            INPUT back[8];
+            size_t b_idx = 0;
+            for (int i = 0; i < delete_count; ++i) {
+                INPUT down = {};
+                down.type = INPUT_KEYBOARD;
+                down.ki.wVk = VK_BACK;
+                down.ki.dwExtraInfo = SYNTH_MARKER;
+                INPUT up = down;
+                up.ki.dwFlags = KEYEVENTF_KEYUP;
+                back[b_idx++] = down;
+                back[b_idx++] = up;
+            }
+            SendInput(static_cast<UINT>(b_idx), back, sizeof(INPUT));
+        } else {
+            // For longer words in Electron/Chromium, send with micro-spacing so IPC event loop doesn't drop strokes
+            for (int i = 0; i < delete_count; ++i) {
+                INPUT bs[2] = {};
+                bs[0].type = INPUT_KEYBOARD;
+                bs[0].ki.wVk = VK_BACK;
+                bs[0].ki.dwExtraInfo = SYNTH_MARKER;
+                bs[1] = bs[0];
+                bs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+                SendInput(2, bs, sizeof(INPUT));
+                if (i + 1 < delete_count) Sleep(1);
+            }
         }
-        size_t b_idx = 0;
-        for (int i = 0; i < delete_count; ++i) {
-            INPUT down = {};
-            down.type = INPUT_KEYBOARD;
-            down.ki.wVk = VK_BACK;
-            down.ki.dwExtraInfo = SYNTH_MARKER;
-            INPUT up = down;
-            up.ki.dwFlags = KEYEVENTF_KEYUP;
-            back_inputs[b_idx++] = down;
-            back_inputs[b_idx++] = up;
-        }
-        SendInput(static_cast<UINT>(b_idx), back_inputs, sizeof(INPUT));
-        Sleep(4); // Settle pause so target application processes deletion before new text arrives
+        Sleep(5); // Settle pause so target application processes deletion before new text arrives
     }
 
     // 2. Unicode characters

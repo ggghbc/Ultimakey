@@ -31,7 +31,7 @@ public:
 
     SwapDecision Decide(std::wstring_view raw,
                         const TransparentStringSet& ignored,
-                        const TransparentStringSet& learned,
+                        const TransparentStringSet& user_words,
                         const TransparentStringSet& force_swap,
                         std::wstring_view prev = L"",
                         std::wstring_view earlier = L"",
@@ -59,7 +59,8 @@ private:
     const TrigramTable& trigrams_en_;
 
     bool HasValidSourceBeforeTrailingPunctuation(std::wstring_view raw_core,
-                                                 const TransparentStringSet& force_swap) const;
+                                                 const TransparentStringSet& force_swap,
+                                                 const TransparentStringSet& user_words) const;
     bool RussianNJAfterLatinLabel(std::wstring_view word, std::wstring_view raw_core,
                                   std::wstring_view prev, std::wstring_view earlier) const;
 };

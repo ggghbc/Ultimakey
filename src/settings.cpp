@@ -69,6 +69,7 @@ void Settings::SetDefaults() {
     for (const auto* w : kDefaultIgnoredWords) {
         ignored_words.insert(std::wstring(w));
     }
+    user_words.clear();
     learned_words.clear();
     force_swap_words.clear();
     snippets.clear();
@@ -197,6 +198,16 @@ bool Settings::Save() const {
     ss << "  \"ignored_words\": [\n";
     first = true;
     for (const auto& w : ignored_words) {
+        if (!first) ss << ",\n";
+        first = false;
+        ss << "    " << EscapeJsonString(w);
+    }
+    ss << "\n  ],\n";
+
+    // user_words
+    ss << "  \"user_words\": [\n";
+    first = true;
+    for (const auto& w : user_words) {
         if (!first) ss << ",\n";
         first = false;
         ss << "    " << EscapeJsonString(w);
@@ -389,8 +400,9 @@ bool Settings::Load() {
                     p.Match(',');
                 }
             }
-        } else if (key == "ignored_words" || key == "learned_words" || key == "force_swap_words") {
+        } else if (key == "ignored_words" || key == "user_words" || key == "learned_words" || key == "force_swap_words") {
             auto& target_set = (key == "ignored_words") ? ignored_words :
+                               (key == "user_words") ? user_words :
                                (key == "learned_words") ? learned_words : force_swap_words;
             if (p.Match('[')) {
                 target_set.clear();
@@ -423,6 +435,10 @@ bool Settings::Load() {
         }
 
         p.Match(',');
+    }
+
+    if (user_words.empty() && !learned_words.empty()) {
+        user_words = learned_words;
     }
 
     if (ignored_words.empty()) {

@@ -28,6 +28,7 @@ bool LayoutDetector::WordExistsInSource(std::wstring_view w, bool cyrillic) cons
 }
 
 bool LayoutDetector::IsLayoutLetter(wchar_t c) noexcept {
+    if (c == L'.' || c == L',' || c == L'/' || c == L'?' || c == L';' || c == L':' || c == L'!' || c == 0x2026) return false;
     if (IsLatin(c) || IsCyrillic(c)) return true;
     wchar_t r = Keymap::Instance().ConvertChar(c, true);
     if (IsCyrillic(r)) return true;
@@ -183,7 +184,8 @@ struct StackBuf {
 } // namespace
 
 bool LayoutDetector::HasValidSourceBeforeTrailingPunctuation(std::wstring_view raw_core,
-                                                             const TransparentStringSet& force_swap) const {
+                                                             const TransparentStringSet& force_swap,
+                                                             const TransparentStringSet& user_words) const {
     StackBuf<64> whole_buf;
     std::wstring whole_heap;
     std::wstring_view whole;
@@ -202,6 +204,7 @@ bool LayoutDetector::HasValidSourceBeforeTrailingPunctuation(std::wstring_view r
     if (cyr == lat) return false;
 
     if (Data::IsInForceSwapBuiltin(semantic) || force_swap.count(semantic) > 0) return true;
+    if (user_words.count(semantic) > 0) return true;
     if (lat && Data::IsInTechLatinTokens(semantic)) return true;
     if (lat && Data::IsInForceRuAmb(semantic)) return false;
 
@@ -270,10 +273,9 @@ bool LayoutDetector::IsKnownExtension(std::wstring_view ext) noexcept {
 }
 
 static bool ShouldKeepToken(std::wstring_view token,
-                            const TransparentStringSet& ignored,
-                            const TransparentStringSet& learned) noexcept {
+                            const TransparentStringSet& ignored) noexcept {
     if (token.empty()) return false;
-    if (ignored.count(token) > 0 || learned.count(token) > 0) return true;
+    if (ignored.count(token) > 0) return true;
     if (Data::IsInDefaultKeep(token)) return true;
     if (LayoutDetector::IsKnownExtension(token)) return true;
     return false;
@@ -281,7 +283,7 @@ static bool ShouldKeepToken(std::wstring_view token,
 
 SwapDecision LayoutDetector::Decide(std::wstring_view raw,
                                     const TransparentStringSet& ignored,
-                                    const TransparentStringSet& learned,
+                                    const TransparentStringSet& user_words,
                                     const TransparentStringSet& force_swap,
                                     std::wstring_view prev,
                                     std::wstring_view earlier,
@@ -302,12 +304,12 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
             std::wstring ext_h = ToLower(ext_raw);
             ext = ext_h;
         }
-        if (ShouldKeepToken(ext, ignored, learned)) {
+        if (ShouldKeepToken(ext, ignored)) {
             return SwapDecision::Keep();
         }
     }
 
-    // 2. File extensions / filenames typed in Russian layout (e.g. юучу -> .exe, учу -> exe, еуыеюече -> test.txt, 123юузп -> 123.png)
+    // 2. File extensions / filenames typed in Russian layout (e.g. юучу -> .exe, еуыеюече -> test.txt, 123юузп -> 123.png)
     if (HasCyrillic(raw)) {
         std::wstring swapped_full = Keymap::Instance().Convert(raw, false);
         std::wstring swapped_lower = ToLower(swapped_full);
@@ -326,7 +328,7 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
 
         if (s_dot != std::wstring::npos && s_dot + 1 < swapped_lower.length()) {
             std::wstring_view ext = std::wstring_view(swapped_lower).substr(s_dot + 1);
-            if (ShouldKeepToken(ext, ignored, learned)) {
+            if (ShouldKeepToken(ext, ignored)) {
                 bool valid_prefix = true;
                 for (size_t i = 0; i < s_dot; ++i) {
                     wchar_t c = swapped_lower[i];
@@ -343,17 +345,9 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
                         break;
                     }
                 }
-                if (valid_prefix && valid_ext && !words_ru_.Contains(raw_low)) {
+                if (valid_prefix && valid_ext && !words_ru_.Contains(raw_low) && user_words.count(raw_low) == 0) {
                     return SwapDecision::To(false);
                 }
-            }
-        } else if (ShouldKeepToken(swapped_lower, ignored, learned)) {
-            bool all_lat = true;
-            for (wchar_t c : swapped_lower) {
-                if (!IsLatin(c) && !IsAsciiDigit(c)) { all_lat = false; break; }
-            }
-            if (all_lat && !words_ru_.Contains(raw_low)) {
-                return SwapDecision::To(false);
             }
         }
     }
@@ -376,7 +370,7 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
             str_h = ToLower(stripped);
             str_v = str_h;
         }
-        if (ShouldKeepToken(str_v, ignored, learned)) {
+        if (ShouldKeepToken(str_v, ignored)) {
             return SwapDecision::Keep();
         }
     }
@@ -402,9 +396,9 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
         whole = who_b.view();
     } else { who_h = ToLower(raw); whole = who_h; }
 
-    if (ShouldKeepToken(literal, ignored, learned) ||
-        ShouldKeepToken(typed, ignored, learned) ||
-        ShouldKeepToken(whole, ignored, learned)) {
+    if (ShouldKeepToken(literal, ignored) ||
+        ShouldKeepToken(typed, ignored) ||
+        ShouldKeepToken(whole, ignored)) {
         return SwapDecision::Keep();
     }
 
@@ -452,7 +446,7 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
         if (!IsLayoutLetter(c)) return SwapDecision::Keep();
     }
 
-    if (ignored.count(w) || learned.count(w) || Data::IsInDefaultKeep(w)) {
+    if (ignored.count(w) || Data::IsInDefaultKeep(w)) {
         return SwapDecision::Keep();
     }
 
@@ -477,7 +471,7 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
     }
 
     // Trailing punctuation rule
-    if (source_cyrillic && !words_ru_.Contains(w) && !swapped.empty() &&
+    if (source_cyrillic && !words_ru_.Contains(w) && user_words.count(w) == 0 && !swapped.empty() &&
         Keymap::IsTrailingPunctuation(swapped.back())) {
         size_t end = core_raw.length();
         while (end > 0) {
@@ -486,7 +480,7 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
             else break;
         }
         if (end == 0) return SwapDecision::Keep();
-        return Decide(core_raw.substr(0, end), ignored, learned, force_swap, prev, earlier, after_caret_jump);
+        return Decide(core_raw.substr(0, end), ignored, user_words, force_swap, prev, earlier, after_caret_jump);
     }
 
     if (swapped == w) return SwapDecision::Keep();
@@ -495,13 +489,14 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
         if (!IsLatin(c) && !IsCyrillic(c) && c != L'\'') return SwapDecision::Keep();
     }
 
-    bool source_is_real_word = HasValidSourceBeforeTrailingPunctuation(core_raw, force_swap) ||
-                               words_ru_.Contains(w) || words_en_.Contains(w);
+    bool source_is_real_word = HasValidSourceBeforeTrailingPunctuation(core_raw, force_swap, user_words) ||
+                               words_ru_.Contains(w) || words_en_.Contains(w) ||
+                               user_words.count(w) > 0;
 
     if (!source_is_real_word) {
         auto de = DeElongated(w);
         for (const auto& dw : de) {
-            if (words_ru_.Contains(dw) || words_en_.Contains(dw)) {
+            if (words_ru_.Contains(dw) || words_en_.Contains(dw) || user_words.count(dw) > 0) {
                 source_is_real_word = true;
                 break;
             }
@@ -510,7 +505,8 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
 
     if (Data::IsInForceSwapBuiltin(swapped) && !source_is_real_word) return SwapDecision::To(to_cyrillic);
     if (force_swap.count(swapped) > 0) return SwapDecision::To(to_cyrillic);
-    if (Data::IsInForceSwapBuiltin(w) || force_swap.count(w) > 0) return SwapDecision::Keep();
+    if (user_words.count(swapped) > 0 && !source_is_real_word) return SwapDecision::To(to_cyrillic);
+    if (Data::IsInForceSwapBuiltin(w) || force_swap.count(w) > 0 || user_words.count(w) > 0) return SwapDecision::Keep();
     if (source_latin && Data::IsInTechLatinTokens(w)) return SwapDecision::Keep();
 
     if (w.length() >= 2 && source_is_real_word && !(source_latin && Data::IsInForceRuAmb(w))) {
@@ -550,18 +546,21 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
 
     auto en_swap_not_junk = [&]() {
         if (w.length() == 2) return Data::IsInCommonEnTwoLetter(swapped);
-        return w.length() >= 4 || trigrams_en_.Plausibility(swapped) > kShortEnSwapFloor;
+        return true;
     };
 
     // Dictionary decisions
     if (source_latin) {
-        if (words_en_.Contains(w) && !Data::IsInForceRuAmb(w)) {
-            if (context == ContextHint::Cyrillic && words_ru_.Contains(swapped) && !Data::IsInEnKeepShort(w)) {
+        bool en_exists = words_en_.Contains(w) || user_words.count(w) > 0;
+        bool ru_swapped_exists = words_ru_.Contains(swapped) || user_words.count(swapped) > 0;
+
+        if (en_exists && !Data::IsInForceRuAmb(w)) {
+            if (context == ContextHint::Cyrillic && ru_swapped_exists && !Data::IsInEnKeepShort(w)) {
                 return SwapDecision::To(true);
             }
             return SwapDecision::Keep();
         }
-        if (words_ru_.Contains(swapped)) {
+        if (ru_swapped_exists) {
             if (context == ContextHint::Latin && Data::IsInEnKeepShort(w) &&
                 !RussianNJAfterLatinLabel(w, core_raw, prev, earlier)) {
                 return SwapDecision::Keep();
@@ -569,12 +568,15 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
             return SwapDecision::To(true);
         }
     } else {
-        if (Data::IsInForceEnAmb(swapped) && !words_ru_.Contains(w)) return SwapDecision::To(false);
-        if (words_ru_.Contains(w)) {
-            if (context == ContextHint::Latin && words_en_.Contains(swapped)) return SwapDecision::To(false);
+        bool ru_exists = words_ru_.Contains(w) || user_words.count(w) > 0;
+        bool en_swapped_exists = words_en_.Contains(swapped) || user_words.count(swapped) > 0;
+
+        if (Data::IsInForceEnAmb(swapped) && !ru_exists) return SwapDecision::To(false);
+        if (ru_exists) {
+            if (context == ContextHint::Latin && en_swapped_exists) return SwapDecision::To(false);
             return SwapDecision::Keep();
         }
-        if (words_en_.Contains(swapped) && en_swap_not_junk()) return SwapDecision::To(false);
+        if (en_swapped_exists && en_swap_not_junk()) return SwapDecision::To(false);
     }
 
     // Trigram statistics (only for words >= 4 letters)

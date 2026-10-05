@@ -81,54 +81,32 @@ bool LayoutManager::RequestLayout(HWND hwnd, HKL hkl) {
     if (!hwnd) hwnd = fg;
     if (!hwnd) return false;
 
-    DWORD target_tid = GetWindowThreadProcessId(hwnd, nullptr);
-    DWORD current_tid = GetCurrentThreadId();
-
-    if (target_tid && target_tid != current_tid) {
-        if (AttachThreadInput(current_tid, target_tid, TRUE)) {
-            ActivateKeyboardLayout(hkl, KLF_SETFORPROCESS);
-            AttachThreadInput(current_tid, target_tid, FALSE);
-        }
-    } else {
-        ActivateKeyboardLayout(hkl, KLF_SETFORPROCESS);
-    }
-
-    // Post to top-level window with both wParam=0 and wParam=1 (INPUTLANGCHANGE_SYSCHARSET)
-    PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
-    PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
-
-    // Post to root window if different
     HWND root = GetAncestor(hwnd, GA_ROOT);
-    if (root && root != hwnd) {
-        PostMessageW(root, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
-        PostMessageW(root, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
+    if (!root) root = hwnd;
+
+    // 1. Post to root window and specific hwnd
+    PostMessageW(root, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
+    if (hwnd != root) {
+        PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
     }
 
-    // Also post to specific focused child control if available
+    DWORD target_tid = GetWindowThreadProcessId(root, nullptr);
     if (target_tid) {
         GUITHREADINFO gti = {};
         gti.cbSize = sizeof(gti);
-        if (GetGUIThreadInfo(target_tid, &gti) && gti.hwndFocus && gti.hwndFocus != hwnd) {
+        if (GetGUIThreadInfo(target_tid, &gti) && gti.hwndFocus && gti.hwndFocus != root && gti.hwndFocus != hwnd) {
             PostMessageW(gti.hwndFocus, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
-            PostMessageW(gti.hwndFocus, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
         }
-    }
 
-    // Also post to live foreground window if different from hwnd
-    if (fg && fg != hwnd && fg != root) {
-        DWORD fg_tid = GetWindowThreadProcessId(fg, nullptr);
-        PostMessageW(fg, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
-        PostMessageW(fg, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
-        if (fg_tid) {
-            GUITHREADINFO gti = {};
-            gti.cbSize = sizeof(gti);
-            if (GetGUIThreadInfo(fg_tid, &gti) && gti.hwndFocus && gti.hwndFocus != fg) {
-                PostMessageW(gti.hwndFocus, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(hkl));
-                PostMessageW(gti.hwndFocus, WM_INPUTLANGCHANGEREQUEST, 1, reinterpret_cast<LPARAM>(hkl));
+        // 2. Direct thread activation via AttachThreadInput for apps that don't process WM_INPUTLANGCHANGEREQUEST
+        DWORD my_tid = GetCurrentThreadId();
+        if (target_tid != my_tid) {
+            if (AttachThreadInput(my_tid, target_tid, TRUE)) {
+                ActivateKeyboardLayout(hkl, 0);
+                AttachThreadInput(my_tid, target_tid, FALSE);
             }
         }
     }
-
     return true;
 }
 

@@ -34,6 +34,7 @@ struct Settings {
 
     std::unordered_map<std::wstring, std::wstring, TransparentStringHash, std::equal_to<>> app_modes;
     TransparentStringSet ignored_words;
+    TransparentStringSet user_words;
     TransparentStringSet learned_words;
     TransparentStringSet force_swap_words;
     std::vector<std::pair<std::wstring, std::wstring>> snippets;

@@ -67,43 +67,59 @@ enum CtrlId {
     // Tab 2 - Snippets / Автозамена текста
     ID_GRP_SNIP_LIST = 400,
     ID_LBL_SNIP_LIST = 401,
-    ID_LIST_SNIPPETS = 402,
-    ID_BTN_DEL_SNIP = 403,
-    ID_HINT_DEL_SNIP = 404,
-    ID_GRP_SNIP_ADD = 405,
-    ID_LBL_SNIP_TRIG = 406,
-    ID_EDIT_TRIG = 407,
-    ID_LBL_SNIP_EXP = 408,
-    ID_EDIT_EXP = 409,
-    ID_BTN_ADD_SNIP = 410,
-    ID_HINT_SNIP_HOW = 411,
+    ID_SEARCH_SNIP = 402,
+    ID_LIST_SNIPPETS = 403,
+    ID_BTN_DEL_SNIP = 404,
+    ID_HINT_DEL_SNIP = 405,
+    ID_GRP_SNIP_ADD = 406,
+    ID_LBL_SNIP_TRIG = 407,
+    ID_EDIT_TRIG = 408,
+    ID_LBL_SNIP_EXP = 409,
+    ID_EDIT_EXP = 410,
+    ID_BTN_ADD_SNIP = 411,
+    ID_HINT_SNIP_HOW = 412,
 
     // Tab 3 - App Exceptions / Исключения программ
     ID_GRP_APP_LIST = 500,
     ID_LBL_APP_LIST = 501,
-    ID_LIST_APPS = 502,
-    ID_BTN_DEL_APP = 503,
-    ID_HINT_DEL_APP = 504,
-    ID_GRP_APP_ADD = 505,
-    ID_BTN_BROWSE_APP = 506,
-    ID_EDIT_APP = 507,
-    ID_COMBO_APP_MODE = 508,
-    ID_BTN_ADD_APP = 509,
-    ID_HINT_APP_MODES = 510,
+    ID_SEARCH_APP = 502,
+    ID_LIST_APPS = 503,
+    ID_BTN_DEL_APP = 504,
+    ID_HINT_DEL_APP = 505,
+    ID_GRP_APP_ADD = 506,
+    ID_BTN_BROWSE_APP = 507,
+    ID_EDIT_APP = 508,
+    ID_COMBO_APP_MODE = 509,
+    ID_BTN_ADD_APP = 510,
+    ID_HINT_APP_MODES = 511,
 
     // Tab 4 - Word Exceptions / Исключения слов
     ID_GRP_WORD_LIST = 600,
     ID_LBL_WORD_LIST = 601,
-    ID_LIST_WORDS = 602,
-    ID_BTN_DEL_WORD = 603,
-    ID_HINT_DEL_WORD = 604,
-    ID_GRP_WORD_ADD = 605,
-    ID_LBL_WORD_ADD = 606,
-    ID_EDIT_WORD = 607,
-    ID_BTN_ADD_WORD = 608,
-    ID_HINT_WORD_FOOTNOTE = 609,
+    ID_SEARCH_WORD = 602,
+    ID_LIST_WORDS = 603,
+    ID_BTN_DEL_WORD = 604,
+    ID_HINT_DEL_WORD = 605,
+    ID_GRP_WORD_ADD = 606,
+    ID_LBL_WORD_ADD = 607,
+    ID_EDIT_WORD = 608,
+    ID_BTN_ADD_WORD = 609,
+    ID_HINT_WORD_FOOTNOTE = 610,
 
-    // Tab 5 - About / О программе
+    // Tab 5 - User Words / Словарь пользователя
+    ID_GRP_USER_WORD_LIST = 650,
+    ID_LBL_USER_WORD_LIST = 651,
+    ID_SEARCH_USER_WORD = 652,
+    ID_LIST_USER_WORDS = 653,
+    ID_BTN_DEL_USER_WORD = 654,
+    ID_HINT_DEL_USER_WORD = 655,
+    ID_GRP_USER_WORD_ADD = 656,
+    ID_LBL_USER_WORD_ADD = 657,
+    ID_EDIT_USER_WORD = 658,
+    ID_BTN_ADD_USER_WORD = 659,
+    ID_HINT_USER_WORD_FOOTNOTE = 660,
+
+    // Tab 6 - About / О программе
     ID_LBL_ABOUT_TITLE = 700,
     ID_LBL_ABOUT_DESC = 701,
     ID_GRP_ABOUT_LINKS = 702,
@@ -128,6 +144,11 @@ static LRESULT CALLBACK CustomEditSubclassProc(HWND hed, UINT msg, WPARAM wp, LP
         } else if (id == ID_EDIT_WORD) {
             SendMessageW(hparent, WM_COMMAND, MAKEWPARAM(ID_BTN_ADD_WORD, BN_CLICKED), reinterpret_cast<LPARAM>(GetDlgItem(hparent, ID_BTN_ADD_WORD)));
             return 0;
+        } else if (id == ID_EDIT_USER_WORD) {
+            SendMessageW(hparent, WM_COMMAND, MAKEWPARAM(ID_BTN_ADD_USER_WORD, BN_CLICKED), reinterpret_cast<LPARAM>(GetDlgItem(hparent, ID_BTN_ADD_USER_WORD)));
+            return 0;
+        } else if (id == ID_SEARCH_SNIP || id == ID_SEARCH_APP || id == ID_SEARCH_WORD || id == ID_SEARCH_USER_WORD) {
+            return 0;
         }
     }
     return CallWindowProcW(g_default_edit_proc, hed, msg, wp, lp);
@@ -141,6 +162,99 @@ static const struct { int vk; const wchar_t* name; } kHotkeys[] = {
     {VK_F6, L"F6"}, {VK_F7, L"F7"}, {VK_F8, L"F8"}, {VK_F9, L"F9"},
     {VK_F10, L"F10"}, {VK_F11, L"F11"}, {VK_F12, L"F12"}
 };
+
+static std::wstring GetSearchText(HWND hwnd, int edit_id) {
+    wchar_t buf[128] = {};
+    GetDlgItemTextW(hwnd, edit_id, buf, 128);
+    std::wstring s(buf);
+    while (!s.empty() && iswspace(s.front())) s.erase(0, 1);
+    while (!s.empty() && iswspace(s.back())) s.pop_back();
+    return ToLower(s);
+}
+
+static void UpdateSnippetsList(HWND hwnd) {
+    HWND hsnip = GetDlgItem(hwnd, ID_LIST_SNIPPETS);
+    if (!hsnip) return;
+    std::wstring filter = GetSearchText(hwnd, ID_SEARCH_SNIP);
+    SendMessageW(hsnip, WM_SETREDRAW, FALSE, 0);
+    SendMessageW(hsnip, LB_RESETCONTENT, 0, 0);
+    for (const auto& [trig, exp] : Settings::Instance().snippets) {
+        if (!filter.empty()) {
+            std::wstring trig_l = ToLower(trig);
+            std::wstring exp_l = ToLower(exp);
+            if (trig_l.find(filter) == std::wstring::npos && exp_l.find(filter) == std::wstring::npos) {
+                continue;
+            }
+        }
+        std::wstring line = trig + L"  ->  " + exp;
+        SendMessageW(hsnip, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
+    }
+    SendMessageW(hsnip, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(hsnip, nullptr, TRUE);
+}
+
+static void UpdateAppsList(HWND hwnd) {
+    HWND happs = GetDlgItem(hwnd, ID_LIST_APPS);
+    if (!happs) return;
+    std::wstring filter = GetSearchText(hwnd, ID_SEARCH_APP);
+    SendMessageW(happs, WM_SETREDRAW, FALSE, 0);
+    SendMessageW(happs, LB_RESETCONTENT, 0, 0);
+    for (const auto& [app, mode] : Settings::Instance().app_modes) {
+        if (!filter.empty()) {
+            std::wstring app_l = ToLower(app);
+            if (app_l.find(filter) == std::wstring::npos) {
+                continue;
+            }
+        }
+        std::wstring mode_desc = (mode == L"off") ? L"  [Off]" : L"  [Soft]";
+        std::wstring line = app + mode_desc;
+        SendMessageW(happs, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
+    }
+    SendMessageW(happs, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(happs, nullptr, TRUE);
+}
+
+static void UpdateWordsList(HWND hwnd) {
+    HWND hwords = GetDlgItem(hwnd, ID_LIST_WORDS);
+    if (!hwords) return;
+    std::wstring filter = GetSearchText(hwnd, ID_SEARCH_WORD);
+    SendMessageW(hwords, WM_SETREDRAW, FALSE, 0);
+    SendMessageW(hwords, LB_RESETCONTENT, 0, 0);
+    std::vector<std::wstring> sorted_words(Settings::Instance().ignored_words.begin(), Settings::Instance().ignored_words.end());
+    std::sort(sorted_words.begin(), sorted_words.end());
+    for (const auto& w : sorted_words) {
+        if (!filter.empty()) {
+            std::wstring w_l = ToLower(w);
+            if (w_l.find(filter) == std::wstring::npos) {
+                continue;
+            }
+        }
+        SendMessageW(hwords, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str()));
+    }
+    SendMessageW(hwords, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(hwords, nullptr, TRUE);
+}
+
+static void UpdateUserWordsList(HWND hwnd) {
+    HWND hwords = GetDlgItem(hwnd, ID_LIST_USER_WORDS);
+    if (!hwords) return;
+    std::wstring filter = GetSearchText(hwnd, ID_SEARCH_USER_WORD);
+    SendMessageW(hwords, WM_SETREDRAW, FALSE, 0);
+    SendMessageW(hwords, LB_RESETCONTENT, 0, 0);
+    std::vector<std::wstring> sorted_words(Settings::Instance().user_words.begin(), Settings::Instance().user_words.end());
+    std::sort(sorted_words.begin(), sorted_words.end());
+    for (const auto& w : sorted_words) {
+        if (!filter.empty()) {
+            std::wstring w_l = ToLower(w);
+            if (w_l.find(filter) == std::wstring::npos) {
+                continue;
+            }
+        }
+        SendMessageW(hwords, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str()));
+    }
+    SendMessageW(hwords, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(hwords, nullptr, TRUE);
+}
 
 static void UpdateDialogTexts(HWND hwnd, const std::string& lang) {
     SetWindowTextW(hwnd, Tr(StrId::SettingsTitle, lang));
@@ -159,8 +273,10 @@ static void UpdateDialogTexts(HWND hwnd, const std::string& lang) {
         SendMessageW(htab, TCM_SETITEMW, 3, reinterpret_cast<LPARAM>(&tie));
         tie.pszText = const_cast<LPWSTR>(Tr(StrId::TabWordExceptions, lang));
         SendMessageW(htab, TCM_SETITEMW, 4, reinterpret_cast<LPARAM>(&tie));
-        tie.pszText = const_cast<LPWSTR>(Tr(StrId::TabAbout, lang));
+        tie.pszText = const_cast<LPWSTR>(Tr(StrId::TabUserWords, lang));
         SendMessageW(htab, TCM_SETITEMW, 5, reinterpret_cast<LPARAM>(&tie));
+        tie.pszText = const_cast<LPWSTR>(Tr(StrId::TabAbout, lang));
+        SendMessageW(htab, TCM_SETITEMW, 6, reinterpret_cast<LPARAM>(&tie));
     }
 
     for (const auto& item : g_controls) {
@@ -177,6 +293,15 @@ static void UpdateDialogTexts(HWND hwnd, const std::string& lang) {
         SendMessageW(happ_mode_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(Tr(StrId::AppModeOff, lang)));
         SendMessageW(happ_mode_combo, CB_SETCURSEL, cur_sel >= 0 ? cur_sel : 0, 0);
     }
+
+    HWND hsearch_snip = GetDlgItem(hwnd, ID_SEARCH_SNIP);
+    if (hsearch_snip) SendMessageW(hsearch_snip, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(Tr(StrId::SearchPlaceholder, lang)));
+    HWND hsearch_app = GetDlgItem(hwnd, ID_SEARCH_APP);
+    if (hsearch_app) SendMessageW(hsearch_app, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(Tr(StrId::SearchPlaceholder, lang)));
+    HWND hsearch_word = GetDlgItem(hwnd, ID_SEARCH_WORD);
+    if (hsearch_word) SendMessageW(hsearch_word, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(Tr(StrId::SearchPlaceholder, lang)));
+    HWND hsearch_user_word = GetDlgItem(hwnd, ID_SEARCH_USER_WORD);
+    if (hsearch_user_word) SendMessageW(hsearch_user_word, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(Tr(StrId::SearchPlaceholder, lang)));
 }
 
 static void SwitchTab(int tab_idx) {
@@ -243,45 +368,16 @@ static void PopulateDialog(HWND hwnd) {
     CheckDlgButton(hwnd, ID_CHK_WIN, (s.hotkey_mods & Settings::ModWin) ? BST_CHECKED : BST_UNCHECKED);
 
     // Tab 2 snippets
-    HWND hsnip = GetDlgItem(hwnd, ID_LIST_SNIPPETS);
-    if (hsnip) {
-        SendMessageW(hsnip, WM_SETREDRAW, FALSE, 0);
-        SendMessageW(hsnip, LB_RESETCONTENT, 0, 0);
-        for (const auto& [trig, exp] : s.snippets) {
-            std::wstring line = trig + L"  ->  " + exp;
-            SendMessageW(hsnip, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
-        }
-        SendMessageW(hsnip, WM_SETREDRAW, TRUE, 0);
-        InvalidateRect(hsnip, nullptr, TRUE);
-    }
+    UpdateSnippetsList(hwnd);
 
     // Tab 3 apps
-    HWND happs = GetDlgItem(hwnd, ID_LIST_APPS);
-    if (happs) {
-        SendMessageW(happs, WM_SETREDRAW, FALSE, 0);
-        SendMessageW(happs, LB_RESETCONTENT, 0, 0);
-        for (const auto& [app, mode] : s.app_modes) {
-            std::wstring mode_desc = (mode == L"off") ? L"  [Off]" : L"  [Soft]";
-            std::wstring line = app + mode_desc;
-            SendMessageW(happs, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
-        }
-        SendMessageW(happs, WM_SETREDRAW, TRUE, 0);
-        InvalidateRect(happs, nullptr, TRUE);
-    }
+    UpdateAppsList(hwnd);
 
     // Tab 4 words
-    HWND hwords = GetDlgItem(hwnd, ID_LIST_WORDS);
-    if (hwords) {
-        SendMessageW(hwords, WM_SETREDRAW, FALSE, 0);
-        SendMessageW(hwords, LB_RESETCONTENT, 0, 0);
-        std::vector<std::wstring> sorted_words(s.ignored_words.begin(), s.ignored_words.end());
-        std::sort(sorted_words.begin(), sorted_words.end());
-        for (const auto& w : sorted_words) {
-            SendMessageW(hwords, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str()));
-        }
-        SendMessageW(hwords, WM_SETREDRAW, TRUE, 0);
-        InvalidateRect(hwords, nullptr, TRUE);
-    }
+    UpdateWordsList(hwnd);
+
+    // Tab 5 user words
+    UpdateUserWordsList(hwnd);
 
     UpdateDialogTexts(hwnd, s.language);
 }
@@ -369,14 +465,14 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             // Tab Control
             HWND htab = CreateWindowExW(0, WC_TABCONTROLW, L"",
                                         WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_TABSTOP,
-                                        s(12), s(10), s(715), s(455), hwnd, reinterpret_cast<HMENU>(ID_TAB), hinst, nullptr);
+                                        s(12), s(10), s(896), s(455), hwnd, reinterpret_cast<HMENU>(ID_TAB), hinst, nullptr);
             SendMessageW(htab, WM_SETFONT, reinterpret_cast<WPARAM>(hfont), TRUE);
             SetWindowPos(htab, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
             TCITEMW tie = {};
             tie.mask = TCIF_TEXT;
             tie.pszText = const_cast<LPWSTR>(L"");
-            for (int i = 0; i < 6; ++i) {
+            for (int i = 0; i < 7; ++i) {
                 SendMessageW(htab, TCM_INSERTITEMW, i, reinterpret_cast<LPARAM>(&tie));
             }
 
@@ -398,22 +494,22 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             // TAB 0 Controls: General / Основные
             // ==========================================
             int y = s(38);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(670), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_AUTO), hinst, nullptr), 0, StrId::OptAutoEnabled); y += s(22);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(45), y, s(650), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_SPACE), hinst, nullptr), 0, StrId::OptTriggerSpace); y += s(20);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(45), y, s(650), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_ENTER), hinst, nullptr), 0, StrId::OptTriggerEnter); y += s(20);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(45), y, s(650), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_TAB), hinst, nullptr), 0, StrId::OptTriggerTab); y += s(23);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(670), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_ARROWS), hinst, nullptr), 0, StrId::OptArrowsCancel); y += s(22);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(670), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_TYPO), hinst, nullptr), 0, StrId::OptTypofix); y += s(22);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(670), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_DOUBLESPACE), hinst, nullptr), 0, StrId::OptDoubleSpace); y += s(22);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(670), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_CAPSREMAP), hinst, nullptr), 0, StrId::OptCapsRemap); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_AUTO), hinst, nullptr), 0, StrId::OptAutoEnabled); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(45), y, s(830), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_SPACE), hinst, nullptr), 0, StrId::OptTriggerSpace); y += s(20);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(45), y, s(830), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_ENTER), hinst, nullptr), 0, StrId::OptTriggerEnter); y += s(20);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(45), y, s(830), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_TAB), hinst, nullptr), 0, StrId::OptTriggerTab); y += s(23);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_ARROWS), hinst, nullptr), 0, StrId::OptArrowsCancel); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_TYPO), hinst, nullptr), 0, StrId::OptTypofix); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_DOUBLESPACE), hinst, nullptr), 0, StrId::OptDoubleSpace); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_CAPSREMAP), hinst, nullptr), 0, StrId::OptCapsRemap); y += s(22);
 
             // Sound: Checkbox + Play button
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(400), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_SOUND), hinst, nullptr), 0, StrId::OptSound);
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"▶", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(430), y - s(1), s(32), s(22), hwnd, reinterpret_cast<HMENU>(ID_BTN_TEST_SOUND), hinst, nullptr), 0, StrId::BtnListen);
             y += s(24);
 
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(670), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_AUTOSTART), hinst, nullptr), 0, StrId::OptStartup); y += s(22);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(670), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_LOG), hinst, nullptr), 0, StrId::OptLog); y += s(28);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_AUTOSTART), hinst, nullptr), 0, StrId::OptStartup); y += s(22);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_LOG), hinst, nullptr), 0, StrId::OptLog); y += s(28);
 
             // Interface Language Selector
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(25), y + s(2), s(140), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_LANG), hinst, nullptr), 0, StrId::LblLanguage);
@@ -422,84 +518,103 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             // ==========================================
             // TAB 1 Controls: Hotkeys / Горячие клавиши
             // ==========================================
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(25), s(50), s(670), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_HOTKEY), hinst, nullptr), 1, StrId::LblHotkeySwitch);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(25), s(50), s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_HOTKEY), hinst, nullptr), 1, StrId::LblHotkeySwitch);
             add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, s(25), s(75), s(280), s(200), hwnd, reinterpret_cast<HMENU>(ID_COMBO_HOTKEY), hinst, nullptr), 1);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(25), s(115), s(670), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_MODS), hinst, nullptr), 1, StrId::LblHotkeyMods);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(25), s(115), s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_MODS), hinst, nullptr), 1, StrId::LblHotkeyMods);
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"Ctrl", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), s(140), s(80), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_CTRL), hinst, nullptr), 1, StrId::ModCtrl);
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"Alt", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(120), s(140), s(80), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_ALT), hinst, nullptr), 1, StrId::ModAlt);
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"Shift", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(215), s(140), s(80), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_SHIFT), hinst, nullptr), 1, StrId::ModShift);
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"Win", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(310), s(140), s(80), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_WIN), hinst, nullptr), 1, StrId::ModWin);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(25), s(185), s(670), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_HOTKEY), hinst, nullptr), 1, StrId::HintHotkeySelection);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(25), s(185), s(850), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_HOTKEY), hinst, nullptr), 1, StrId::HintHotkeySelection);
 
             // ==========================================
-            // TAB 2 Controls: Snippets / Автозамена текста
+            // TAB 2 Controls: Snippets / Автозамена
             // ==========================================
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(695), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_LIST), hinst, nullptr), 2, StrId::GrpSnippetsList);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(58), s(535), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_SNIP_LIST), hinst, nullptr), 2, StrId::LblSnippetsList);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(78), s(535), s(145), hwnd, reinterpret_cast<HMENU>(ID_LIST_SNIPPETS), hinst, nullptr), 2);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(590), s(78), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_SNIP), hinst, nullptr), 2, StrId::BtnDelete);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(590), s(115), s(115), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_DEL_SNIP), hinst, nullptr), 2, StrId::HintDeleteSnippet);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_LIST), hinst, nullptr), 2, StrId::GrpSnippetsList);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(56), s(300), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_SNIP_LIST), hinst, nullptr), 2, StrId::LblSnippetsList);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(480), s(52), s(240), s(22), hwnd, reinterpret_cast<HMENU>(ID_SEARCH_SNIP), hinst, nullptr)), 2);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(78), s(685), s(145), hwnd, reinterpret_cast<HMENU>(ID_LIST_SNIPPETS), hinst, nullptr), 2);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(745), s(78), s(135), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_SNIP), hinst, nullptr), 2, StrId::BtnDelete);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(745), s(115), s(135), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_DEL_SNIP), hinst, nullptr), 2, StrId::HintDeleteSnippet);
 
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(248), s(695), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_ADD), hinst, nullptr), 2, StrId::GrpSnippetsAdd);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(268), s(255), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_SNIP_TRIG), hinst, nullptr), 2, StrId::LblSnippetTrigger);
-            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(35), s(288), s(255), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_TRIG), hinst, nullptr)), 2);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(305), s(268), s(265), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_SNIP_EXP), hinst, nullptr), 2, StrId::LblSnippetReplacement);
-            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(305), s(288), s(265), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_EXP), hinst, nullptr)), 2);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(590), s(286), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_SNIP), hinst, nullptr), 2, StrId::BtnAdd);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(325), s(670), s(36), hwnd, reinterpret_cast<HMENU>(ID_HINT_SNIP_HOW), hinst, nullptr), 2, StrId::HintSnippetsHow);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(248), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_ADD), hinst, nullptr), 2, StrId::GrpSnippetsAdd);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(268), s(330), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_SNIP_TRIG), hinst, nullptr), 2, StrId::LblSnippetTrigger);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(35), s(288), s(330), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_TRIG), hinst, nullptr)), 2);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(385), s(268), s(335), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_SNIP_EXP), hinst, nullptr), 2, StrId::LblSnippetReplacement);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(385), s(288), s(335), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_EXP), hinst, nullptr)), 2);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(745), s(286), s(135), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_SNIP), hinst, nullptr), 2, StrId::BtnAdd);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(325), s(850), s(36), hwnd, reinterpret_cast<HMENU>(ID_HINT_SNIP_HOW), hinst, nullptr), 2, StrId::HintSnippetsHow);
 
             // ==========================================
             // TAB 3 Controls: App Exceptions / Исключения программ
             // ==========================================
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(695), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_LIST), hinst, nullptr), 3, StrId::GrpAppList);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(58), s(535), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_APP_LIST), hinst, nullptr), 3, StrId::LblAppList);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(78), s(535), s(145), hwnd, reinterpret_cast<HMENU>(ID_LIST_APPS), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(590), s(78), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_APP), hinst, nullptr), 3, StrId::BtnDelete);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(590), s(115), s(115), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_DEL_APP), hinst, nullptr), 3, StrId::HintDeleteApp);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_LIST), hinst, nullptr), 3, StrId::GrpAppList);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(56), s(300), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_APP_LIST), hinst, nullptr), 3, StrId::LblAppList);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(480), s(52), s(240), s(22), hwnd, reinterpret_cast<HMENU>(ID_SEARCH_APP), hinst, nullptr)), 3);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(78), s(685), s(145), hwnd, reinterpret_cast<HMENU>(ID_LIST_APPS), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(745), s(78), s(135), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_APP), hinst, nullptr), 3, StrId::BtnDelete);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(745), s(115), s(135), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_DEL_APP), hinst, nullptr), 3, StrId::HintDeleteApp);
 
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(248), s(695), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_ADD), hinst, nullptr), 3, StrId::GrpAppAdd);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(35), s(278), s(175), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_BROWSE_APP), hinst, nullptr), 3, StrId::BtnBrowse);
-            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(220), s(281), s(190), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_APP), hinst, nullptr)), 3);
-            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, s(420), s(281), s(150), s(120), hwnd, reinterpret_cast<HMENU>(ID_COMBO_APP_MODE), hinst, nullptr), 3);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(590), s(278), s(115), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_APP), hinst, nullptr), 3, StrId::BtnAdd);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(322), s(670), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_APP_MODES), hinst, nullptr), 3, StrId::HintAppModes);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(248), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_ADD), hinst, nullptr), 3, StrId::GrpAppAdd);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(35), s(278), s(185), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_BROWSE_APP), hinst, nullptr), 3, StrId::BtnBrowse);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(235), s(281), s(300), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_APP), hinst, nullptr)), 3);
+            add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, s(550), s(281), s(170), s(120), hwnd, reinterpret_cast<HMENU>(ID_COMBO_APP_MODE), hinst, nullptr), 3);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(745), s(278), s(135), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_APP), hinst, nullptr), 3, StrId::BtnAdd);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(322), s(850), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_APP_MODES), hinst, nullptr), 3, StrId::HintAppModes);
 
             // ==========================================
             // TAB 4 Controls: Word Exceptions / Слова, которые не исправляются
             // ==========================================
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(695), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_LIST), hinst, nullptr), 4, StrId::GrpWordList);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(58), s(535), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_WORD_LIST), hinst, nullptr), 4, StrId::LblWordList);
-            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(78), s(535), s(145), hwnd, reinterpret_cast<HMENU>(ID_LIST_WORDS), hinst, nullptr), 4);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(590), s(78), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_WORD), hinst, nullptr), 4, StrId::BtnDelete);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(590), s(115), s(115), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_DEL_WORD), hinst, nullptr), 4, StrId::HintDeleteWord);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_LIST), hinst, nullptr), 4, StrId::GrpWordList);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(56), s(300), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_WORD_LIST), hinst, nullptr), 4, StrId::LblWordList);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(480), s(52), s(240), s(22), hwnd, reinterpret_cast<HMENU>(ID_SEARCH_WORD), hinst, nullptr)), 4);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(78), s(685), s(145), hwnd, reinterpret_cast<HMENU>(ID_LIST_WORDS), hinst, nullptr), 4);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(745), s(78), s(135), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_WORD), hinst, nullptr), 4, StrId::BtnDelete);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(745), s(115), s(135), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_DEL_WORD), hinst, nullptr), 4, StrId::HintDeleteWord);
 
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(248), s(695), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_ADD), hinst, nullptr), 4, StrId::GrpWordAdd);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(268), s(535), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_WORD_ADD), hinst, nullptr), 4, StrId::LblWordAdd);
-            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(35), s(288), s(535), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_WORD), hinst, nullptr)), 4);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(590), s(286), s(115), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_WORD), hinst, nullptr), 4, StrId::BtnAdd);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(325), s(670), s(36), hwnd, reinterpret_cast<HMENU>(ID_HINT_WORD_FOOTNOTE), hinst, nullptr), 4, StrId::HintWordFootnote);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(248), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_ADD), hinst, nullptr), 4, StrId::GrpWordAdd);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(268), s(685), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_WORD_ADD), hinst, nullptr), 4, StrId::LblWordAdd);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(35), s(288), s(685), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_WORD), hinst, nullptr)), 4);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(745), s(286), s(135), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_WORD), hinst, nullptr), 4, StrId::BtnAdd);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(325), s(850), s(36), hwnd, reinterpret_cast<HMENU>(ID_HINT_WORD_FOOTNOTE), hinst, nullptr), 4, StrId::HintWordFootnote);
 
             // ==========================================
-            // TAB 5 Controls: About / О программе
+            // TAB 5 Controls: User Dictionary / Словарь пользователя (Positive List)
             // ==========================================
-            HWND htitle = add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(45), s(670), s(28), hwnd, reinterpret_cast<HMENU>(ID_LBL_ABOUT_TITLE), hinst, nullptr), 5, StrId::AboutTitle);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_USER_WORD_LIST), hinst, nullptr), 5, StrId::GrpUserWordList);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(56), s(300), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_USER_WORD_LIST), hinst, nullptr), 5, StrId::LblUserWordList);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(480), s(52), s(240), s(22), hwnd, reinterpret_cast<HMENU>(ID_SEARCH_USER_WORD), hinst, nullptr)), 5);
+            add_ctrl(CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP, s(35), s(78), s(685), s(145), hwnd, reinterpret_cast<HMENU>(ID_LIST_USER_WORDS), hinst, nullptr), 5);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(745), s(78), s(135), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_DEL_USER_WORD), hinst, nullptr), 5, StrId::BtnDelete);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(745), s(115), s(135), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_DEL_USER_WORD), hinst, nullptr), 5, StrId::HintDeleteUserWord);
+
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(248), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_USER_WORD_ADD), hinst, nullptr), 5, StrId::GrpUserWordAdd);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(268), s(685), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_USER_WORD_ADD), hinst, nullptr), 5, StrId::LblUserWordAdd);
+            add_ctrl(hook_edit(CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL | WS_TABSTOP, s(35), s(288), s(685), s(24), hwnd, reinterpret_cast<HMENU>(ID_EDIT_USER_WORD), hinst, nullptr)), 5);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(745), s(286), s(135), s(28), hwnd, reinterpret_cast<HMENU>(ID_BTN_ADD_USER_WORD), hinst, nullptr), 5, StrId::BtnAdd);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(325), s(850), s(36), hwnd, reinterpret_cast<HMENU>(ID_HINT_USER_WORD_FOOTNOTE), hinst, nullptr), 5, StrId::HintUserWordFootnote);
+
+            // ==========================================
+            // TAB 6 Controls: About / О программе
+            // ==========================================
+            HWND htitle = add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(45), s(850), s(28), hwnd, reinterpret_cast<HMENU>(ID_LBL_ABOUT_TITLE), hinst, nullptr), 6, StrId::AboutTitle);
             if (g_title_font) {
                 SendMessageW(htitle, WM_SETFONT, reinterpret_cast<WPARAM>(g_title_font), TRUE);
             }
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(78), s(670), s(36), hwnd, reinterpret_cast<HMENU>(ID_LBL_ABOUT_DESC), hinst, nullptr), 5, StrId::AboutDesc);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(78), s(850), s(36), hwnd, reinterpret_cast<HMENU>(ID_LBL_ABOUT_DESC), hinst, nullptr), 6, StrId::AboutDesc);
 
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(125), s(695), s(318), hwnd, reinterpret_cast<HMENU>(ID_GRP_ABOUT_LINKS), hinst, nullptr), 5, StrId::GrpAboutLinks);
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(40), s(155), s(650), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_ABOUT_REPO), hinst, nullptr), 5, StrId::LblAboutRepo);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(40), s(180), s(420), s(36), hwnd, reinterpret_cast<HMENU>(ID_BTN_ABOUT_REPO), hinst, nullptr), 5, StrId::BtnAboutRepo);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(125), s(876), s(318), hwnd, reinterpret_cast<HMENU>(ID_GRP_ABOUT_LINKS), hinst, nullptr), 6, StrId::GrpAboutLinks);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(40), s(155), s(820), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_ABOUT_REPO), hinst, nullptr), 6, StrId::LblAboutRepo);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(40), s(180), s(500), s(36), hwnd, reinterpret_cast<HMENU>(ID_BTN_ABOUT_REPO), hinst, nullptr), 6, StrId::BtnAboutRepo);
 
-            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(40), s(235), s(650), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_ABOUT_DONATE), hinst, nullptr), 5, StrId::LblAboutDonate);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(40), s(260), s(420), s(36), hwnd, reinterpret_cast<HMENU>(ID_BTN_ABOUT_DONATE), hinst, nullptr), 5, StrId::BtnAboutDonate);
+            add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(40), s(235), s(820), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_ABOUT_DONATE), hinst, nullptr), 6, StrId::LblAboutDonate);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP, s(40), s(260), s(500), s(36), hwnd, reinterpret_cast<HMENU>(ID_BTN_ABOUT_DONATE), hinst, nullptr), 6, StrId::BtnAboutDonate);
 
             // ==========================================
             // Bottom Buttons (always visible)
             // ==========================================
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, s(505), s(477), s(105), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_SAVE), hinst, nullptr), -1, StrId::BtnSave);
-            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, s(620), s(477), s(105), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_CANCEL), hinst, nullptr), -1, StrId::BtnCancel);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, s(675), s(477), s(110), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_SAVE), hinst, nullptr), -1, StrId::BtnSave);
+            add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, s(795), s(477), s(110), s(30), hwnd, reinterpret_cast<HMENU>(ID_BTN_CANCEL), hinst, nullptr), -1, StrId::BtnCancel);
 
             PopulateDialog(hwnd);
             SwitchTab(0);
@@ -546,14 +661,36 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 return 0;
             }
 
+            if (code == EN_CHANGE) {
+                if (id == ID_SEARCH_SNIP) {
+                    UpdateSnippetsList(hwnd);
+                    return 0;
+                } else if (id == ID_SEARCH_APP) {
+                    UpdateAppsList(hwnd);
+                    return 0;
+                } else if (id == ID_SEARCH_WORD) {
+                    UpdateWordsList(hwnd);
+                    return 0;
+                } else if (id == ID_SEARCH_USER_WORD) {
+                    UpdateUserWordsList(hwnd);
+                    return 0;
+                }
+            }
+
             if (code == LBN_SELCHANGE) {
                 if (id == ID_LIST_SNIPPETS) {
                     HWND hsnip = GetDlgItem(hwnd, ID_LIST_SNIPPETS);
                     int sel = static_cast<int>(SendMessageW(hsnip, LB_GETCURSEL, 0, 0));
-                    if (sel >= 0 && sel < static_cast<int>(Settings::Instance().snippets.size())) {
-                        const auto& [trig, exp] = Settings::Instance().snippets[sel];
-                        SetDlgItemTextW(hwnd, ID_EDIT_TRIG, trig.c_str());
-                        SetDlgItemTextW(hwnd, ID_EDIT_EXP, exp.c_str());
+                    if (sel >= 0) {
+                        int len = static_cast<int>(SendMessageW(hsnip, LB_GETTEXTLEN, sel, 0));
+                        std::vector<wchar_t> text(len + 1);
+                        SendMessageW(hsnip, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
+                        std::wstring full(text.data());
+                        size_t sep = full.find(L"  ->  ");
+                        if (sep != std::wstring::npos) {
+                            SetDlgItemTextW(hwnd, ID_EDIT_TRIG, full.substr(0, sep).c_str());
+                            SetDlgItemTextW(hwnd, ID_EDIT_EXP, full.substr(sep + 6).c_str());
+                        }
                     }
                     return 0;
                 } else if (id == ID_LIST_APPS) {
@@ -583,6 +720,16 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                         }
                     }
                     return 0;
+                } else if (id == ID_LIST_USER_WORDS) {
+                    HWND hwords = GetDlgItem(hwnd, ID_LIST_USER_WORDS);
+                    int sel = static_cast<int>(SendMessageW(hwords, LB_GETCURSEL, 0, 0));
+                    if (sel >= 0) {
+                        wchar_t text[256] = {};
+                        if (SendMessageW(hwords, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text)) != LB_ERR) {
+                            SetDlgItemTextW(hwnd, ID_EDIT_USER_WORD, text);
+                        }
+                    }
+                    return 0;
                 }
             } else if (code == LBN_DBLCLK && id == ID_LIST_APPS) {
                 HWND happs = GetDlgItem(hwnd, ID_LIST_APPS);
@@ -598,7 +745,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                             if (it != Settings::Instance().app_modes.end()) {
                                 it->second = (it->second == L"off") ? L"soft" : L"off";
                                 Settings::Instance().Save();
-                                PopulateDialog(hwnd);
+                                UpdateAppsList(hwnd);
                                 SendMessageW(happs, LB_SETCURSEL, sel, 0);
                             }
                         }
@@ -645,7 +792,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                     SnippetStore::Instance().SetSnippets(Settings::Instance().snippets);
                     Settings::Instance().Save();
 
-                    PopulateDialog(hwnd);
+                    UpdateSnippetsList(hwnd);
                     SetDlgItemTextW(hwnd, ID_EDIT_TRIG, L"");
                     SetDlgItemTextW(hwnd, ID_EDIT_EXP, L"");
                     SetFocus(GetDlgItem(hwnd, ID_EDIT_TRIG));
@@ -654,14 +801,25 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             } else if (id == ID_BTN_DEL_SNIP) {
                 HWND hsnip = GetDlgItem(hwnd, ID_LIST_SNIPPETS);
                 int sel = static_cast<int>(SendMessageW(hsnip, LB_GETCURSEL, 0, 0));
-                if (sel >= 0 && sel < static_cast<int>(Settings::Instance().snippets.size())) {
-                    Settings::Instance().snippets.erase(Settings::Instance().snippets.begin() + sel);
-                    SnippetStore::Instance().SetSnippets(Settings::Instance().snippets);
-                    Settings::Instance().Save();
+                if (sel >= 0) {
+                    int len = static_cast<int>(SendMessageW(hsnip, LB_GETTEXTLEN, sel, 0));
+                    std::vector<wchar_t> text(len + 1);
+                    SendMessageW(hsnip, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
+                    std::wstring full(text.data());
+                    size_t sep = full.find(L"  ->  ");
+                    if (sep != std::wstring::npos) {
+                        std::wstring trig = full.substr(0, sep);
+                        auto& snips = Settings::Instance().snippets;
+                        snips.erase(std::remove_if(snips.begin(), snips.end(), [&](const auto& p) {
+                            return p.first == trig;
+                        }), snips.end());
+                        SnippetStore::Instance().SetSnippets(snips);
+                        Settings::Instance().Save();
 
-                    PopulateDialog(hwnd);
-                    SetDlgItemTextW(hwnd, ID_EDIT_TRIG, L"");
-                    SetDlgItemTextW(hwnd, ID_EDIT_EXP, L"");
+                        UpdateSnippetsList(hwnd);
+                        SetDlgItemTextW(hwnd, ID_EDIT_TRIG, L"");
+                        SetDlgItemTextW(hwnd, ID_EDIT_EXP, L"");
+                    }
                 }
                 return 0;
             } else if (id == ID_BTN_BROWSE_APP) {
@@ -698,7 +856,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 if (!name_str.empty()) {
                     Settings::Instance().app_modes[ToLower(name_str)] = mode_code;
                     Settings::Instance().Save();
-                    PopulateDialog(hwnd);
+                    UpdateAppsList(hwnd);
                     SetDlgItemTextW(hwnd, ID_EDIT_APP, L"");
                     SetFocus(GetDlgItem(hwnd, ID_EDIT_APP));
                 }
@@ -716,7 +874,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                         std::wstring app_key = full.substr(0, sp);
                         Settings::Instance().app_modes.erase(ToLower(app_key));
                         Settings::Instance().Save();
-                        PopulateDialog(hwnd);
+                        UpdateAppsList(hwnd);
                         SetDlgItemTextW(hwnd, ID_EDIT_APP, L"");
                     }
                 }
@@ -733,7 +891,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 if (!w.empty()) {
                     Settings::Instance().ignored_words.insert(ToLower(w));
                     Settings::Instance().Save();
-                    PopulateDialog(hwnd);
+                    UpdateWordsList(hwnd);
                     SetDlgItemTextW(hwnd, ID_EDIT_WORD, L"");
                     SetFocus(GetDlgItem(hwnd, ID_EDIT_WORD));
                 }
@@ -748,8 +906,36 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                     std::wstring word(text.data());
                     Settings::Instance().ignored_words.erase(ToLower(word));
                     Settings::Instance().Save();
-                    PopulateDialog(hwnd);
+                    UpdateWordsList(hwnd);
                     SetDlgItemTextW(hwnd, ID_EDIT_WORD, L"");
+                }
+                return 0;
+            } else if (id == ID_BTN_ADD_USER_WORD) {
+                wchar_t word[128] = {};
+                GetDlgItemTextW(hwnd, ID_EDIT_USER_WORD, word, 128);
+                std::wstring w(word);
+                while (!w.empty() && iswspace(w.front())) w.erase(0, 1);
+                while (!w.empty() && iswspace(w.back())) w.pop_back();
+                if (!w.empty()) {
+                    Settings::Instance().user_words.insert(ToLower(w));
+                    Settings::Instance().Save();
+                    UpdateUserWordsList(hwnd);
+                    SetDlgItemTextW(hwnd, ID_EDIT_USER_WORD, L"");
+                    SetFocus(GetDlgItem(hwnd, ID_EDIT_USER_WORD));
+                }
+                return 0;
+            } else if (id == ID_BTN_DEL_USER_WORD) {
+                HWND hwords = GetDlgItem(hwnd, ID_LIST_USER_WORDS);
+                int sel = static_cast<int>(SendMessageW(hwords, LB_GETCURSEL, 0, 0));
+                if (sel >= 0) {
+                    int len = static_cast<int>(SendMessageW(hwords, LB_GETTEXTLEN, sel, 0));
+                    std::vector<wchar_t> text(len + 1);
+                    SendMessageW(hwords, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(text.data()));
+                    std::wstring word(text.data());
+                    Settings::Instance().user_words.erase(ToLower(word));
+                    Settings::Instance().Save();
+                    UpdateUserWordsList(hwnd);
+                    SetDlgItemTextW(hwnd, ID_EDIT_USER_WORD, L"");
                 }
                 return 0;
             }
@@ -825,7 +1011,7 @@ void SettingsDialog::Show(HWND parent_hwnd, HINSTANCE hinstance) {
     DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
     DWORD ex_style = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST;
 
-    RECT rc = { 0, 0, MulDiv(750, static_cast<int>(dpi), 96), MulDiv(535, static_cast<int>(dpi), 96) };
+    RECT rc = { 0, 0, MulDiv(920, static_cast<int>(dpi), 96), MulDiv(535, static_cast<int>(dpi), 96) };
     AdjustWindowRectEx(&rc, style, FALSE, ex_style);
     int win_w = rc.right - rc.left;
     int win_h = rc.bottom - rc.top;

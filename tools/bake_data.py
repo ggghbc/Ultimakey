@@ -384,35 +384,24 @@ def generate_extrawords_header(extra_sets, target_file):
 # -------------------------------------------------------------
 
 def main():
-    mac_dump = r"C:\Users\oakmaster\Desktop\repomix-output-iffuno-keyboop.md"
-    win_dump = r"C:\Users\oakmaster\Desktop\repomix-output-KeyboopWin.zip.md"
+    gen_dir = r"E:\DEV\DictionaryAndTrigramGenerator\output"
     out_dir = r"E:\DEV\Ultimakey\src\data"
     os.makedirs(out_dir, exist_ok=True)
 
-    print("Reading repomix dumps...")
-    with open(mac_dump, 'r', encoding='utf-8', errors='ignore') as f:
-        text_mac = f.read()
-    with open(win_dump, 'r', encoding='utf-8', errors='ignore') as f:
-        text_win = f.read()
+    print(f"Reading dictionary and trigram files from {gen_dir}...")
 
-    print("Extracting ExtraWords...")
-    extra_sets = extract_win_extrawords(text_win)
-    
-    # RU Words: words_ru + RuAbbr + RuLoanNames + RuDev + RuShort + RuCommonForms + Ru
+    # RU Words: words_ru.json
     print("Preparing Russian dictionary...")
-    w_ru = set(extract_mac_json(text_mac, 'words_ru.json'))
-    for sname in ['RuAbbr', 'RuLoanNames', 'RuDev', 'RuShort', 'RuCommonForms', 'Ru']:
-        if sname in extra_sets:
-            w_ru.update(extra_sets[sname])
-    w_ru_list = sorted([w.lower() for w in w_ru if w and all(c >= 'а' and c <= 'я' or c == 'ё' or c == '-' for c in w.lower())])
+    with open(os.path.join(gen_dir, 'words_ru.json'), 'r', encoding='utf-8') as f:
+        w_ru = json.load(f)
+    w_ru_list = sorted(list(set(w.lower() for w in w_ru if w and all(('а' <= c <= 'я' or c == 'ё' or c == '-') for c in w.lower()))))
     print(f"Total RU words: {len(w_ru_list)}")
 
-    # EN Words: words_en + En
+    # EN Words: words_en.json
     print("Preparing English dictionary...")
-    w_en = set(extract_mac_json(text_mac, 'words_en.json'))
-    if 'En' in extra_sets:
-        w_en.update(extra_sets['En'])
-    w_en_list = sorted([w.lower() for w in w_en if w and all(c >= 'a' and c <= 'z' or c == '\'' or c == '-' for c in w.lower())])
+    with open(os.path.join(gen_dir, 'words_en.json'), 'r', encoding='utf-8') as f:
+        w_en = json.load(f)
+    w_en_list = sorted(list(set(w.lower() for w in w_en if w and all(('a' <= c <= 'z' or c == '\'' or c == '-') for c in w.lower()))))
     print(f"Total EN words: {len(w_en_list)}")
 
     # Build RU DAWG
@@ -449,35 +438,45 @@ def main():
 
     # Trigrams
     print("Serializing Trigrams...")
-    tri_ru = extract_mac_json(text_mac, 'trigrams_ru.json')
+    with open(os.path.join(gen_dir, 'trigrams_ru.json'), 'r', encoding='utf-8') as f:
+        tri_ru = json.load(f)
     tri_ru_blob = serialize_trigrams(tri_ru)
     tri_ru_file = os.path.join(out_dir, "ru_trigrams.bin")
     with open(tri_ru_file, 'wb') as f:
         f.write(tri_ru_blob)
     print(f"Saved {tri_ru_file}: {len(tri_ru_blob)} bytes (~{round(len(tri_ru_blob)/1024)} KB)")
 
-    tri_en = extract_mac_json(text_mac, 'trigrams_en.json')
+    with open(os.path.join(gen_dir, 'trigrams_en.json'), 'r', encoding='utf-8') as f:
+        tri_en = json.load(f)
     tri_en_blob = serialize_trigrams(tri_en)
     tri_en_file = os.path.join(out_dir, "en_trigrams.bin")
     with open(tri_en_file, 'wb') as f:
         f.write(tri_en_blob)
     print(f"Saved {tri_en_file}: {len(tri_en_blob)} bytes (~{round(len(tri_en_blob)/1024)} KB)")
 
-    # Typo Rules
-    print("Serializing Typo Rules...")
-    typo_rules = extract_mac_json(text_mac, 'typo_rules.json')
-    typo_blob = serialize_typo_rules(typo_rules)
-    typo_file = os.path.join(out_dir, "typo_rules.bin")
-    with open(typo_file, 'wb') as f:
-        f.write(typo_blob)
-    print(f"Saved {typo_file}: {len(typo_blob)} bytes (~{round(len(typo_blob)/1024)} KB)")
+    # Typo Rules & ExtraWords (if dumps exist)
+    mac_dump = r"C:\Users\oakmaster\Desktop\repomix-output-iffuno-keyboop.md"
+    win_dump = r"C:\Users\oakmaster\Desktop\repomix-output-KeyboopWin.zip.md"
+    if os.path.exists(mac_dump) and os.path.exists(win_dump):
+        print("Serializing Typo Rules...")
+        with open(mac_dump, 'r', encoding='utf-8', errors='ignore') as f:
+            text_mac = f.read()
+        with open(win_dump, 'r', encoding='utf-8', errors='ignore') as f:
+            text_win = f.read()
+        extra_sets = extract_win_extrawords(text_win)
+        typo_rules = extract_mac_json(text_mac, 'typo_rules.json')
+        typo_blob = serialize_typo_rules(typo_rules)
+        typo_file = os.path.join(out_dir, "typo_rules.bin")
+        with open(typo_file, 'wb') as f:
+            f.write(typo_blob)
+        print(f"Saved {typo_file}: {len(typo_blob)} bytes (~{round(len(typo_blob)/1024)} KB)")
 
-    # Generate extrawords_data.hpp
-    print("Generating extrawords_data.hpp...")
-    header_file = os.path.join(out_dir, "extrawords_data.hpp")
-    # remove word sets that are now inside DAWG
-    sets_for_header = {k: v for k, v in extra_sets.items() if k not in ['RuAbbr', 'RuLoanNames', 'RuDev', 'RuShort', 'RuCommonForms', 'Ru', 'En']}
-    generate_extrawords_header(sets_for_header, header_file)
+        print("Generating extrawords_data.hpp...")
+        header_file = os.path.join(out_dir, "extrawords_data.hpp")
+        sets_for_header = {k: v for k, v in extra_sets.items() if k not in ['RuAbbr', 'RuLoanNames', 'RuDev', 'RuShort', 'RuCommonForms', 'Ru', 'En']}
+        generate_extrawords_header(sets_for_header, header_file)
+    else:
+        print("Using existing typo_rules.bin and extrawords_data.hpp.")
 
     print("\nData Baking complete! All resources ready.")
 

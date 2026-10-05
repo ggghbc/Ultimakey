@@ -31,6 +31,7 @@ enum class StrId {
     TabSnippets,
     TabAppExceptions,
     TabWordExceptions,
+    TabUserWords,
     TabAbout,
 
     // Tab 0: General
@@ -83,6 +84,17 @@ enum class StrId {
     GrpWordAdd,
     LblWordAdd,
     HintWordFootnote,
+
+    // Tab 5: User Dictionary (Positive List)
+    GrpUserWordList,
+    LblUserWordList,
+    HintDeleteUserWord,
+    GrpUserWordAdd,
+    LblUserWordAdd,
+    HintUserWordFootnote,
+
+    // Search
+    SearchPlaceholder,
 
     // Tab 5: About
     AboutTitle,

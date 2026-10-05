@@ -87,16 +87,16 @@ inline bool IsAsciiDigit(wchar_t c) noexcept {
 
 inline wchar_t ToLower(wchar_t c) noexcept {
     if (c >= L'A' && c <= L'Z') return c + (L'a' - L'A');
-    if (c >= 0x0410 && c <= 0x042F) return c + 0x20; // Russian А-Я to а-я
-    if (c == 0x0401) return 0x0451;                 // Ё to ё
+    if (c >= 0x0410 && c <= 0x042F) return c + 0x20; // Cyrillic uppercase to lowercase
+    if (c == 0x0401) return 0x0451;                 // Cyrillic capital Yo to small yo
     if (c < 128) return c;                          // Non-letter ASCII doesn't change
     return towlower(c);
 }
 
 inline wchar_t ToUpper(wchar_t c) noexcept {
     if (c >= L'a' && c <= L'z') return c - (L'a' - L'A');
-    if (c >= 0x0430 && c <= 0x044F) return c - 0x20; // Russian а-я to А-Я
-    if (c == 0x0451) return 0x0401;                 // ё to Ё
+    if (c >= 0x0430 && c <= 0x044F) return c - 0x20; // Cyrillic lowercase to uppercase
+    if (c == 0x0451) return 0x0401;                 // Cyrillic small yo to capital Yo
     if (c < 128) return c;                          // Non-letter ASCII doesn't change
     return towupper(c);
 }

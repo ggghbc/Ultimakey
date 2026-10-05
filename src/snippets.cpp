@@ -44,7 +44,7 @@ std::optional<SnippetMatch> SnippetStore::FindMatch(std::wstring_view recent) co
             wchar_t first_trig = item.trigger[0];
             if ((IsLatin(first_trig) || IsCyrillic(first_trig) || IsAsciiDigit(first_trig)) &&
                 (IsLatin(before) || IsCyrillic(before) || IsAsciiDigit(before))) {
-                continue; // Часть более длинного слова
+                continue; // Part of a longer word, enforce token boundary
             }
         }
 

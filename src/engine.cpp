@@ -42,7 +42,7 @@ static void CALLBACK WinEventProc(HWINEVENTHOOK /*hWinEventHook*/, DWORD event, 
 }
 
 bool Engine::Initialize(HINSTANCE hinstance) {
-    Logger::Instance().Write("Engine: Инициализация...");
+    Logger::Instance().Write("Engine: Initializing...");
 
     const void* ptr = nullptr;
     size_t size = 0;
@@ -77,7 +77,7 @@ bool Engine::Initialize(HINSTANCE hinstance) {
     HWND cur_fg = GetForegroundWindow();
     if (cur_fg) OnForegroundChanged(cur_fg);
 
-    Logger::Instance().Write(initialized_ ? "Engine: Успешно инициализирован" : "Engine: Ошибка загрузки ресурсов");
+    Logger::Instance().Write(initialized_ ? "Engine: Initialized successfully" : "Engine: Failed to load language data resources");
     return initialized_;
 }
 
@@ -268,7 +268,7 @@ bool Engine::OnKeyDown(int vk, int scan, bool injected) {
             last_auto_undo_.reset();
 
             SetMuted();
-            Logger::Instance().Write("Undo: откат автопереключения по Ctrl+Z");
+            Logger::Instance().Write("Undo: Reverted automatic switch on Ctrl+Z");
 
             int del_len = static_cast<int>(undo.converted.length() + undo.tail.length());
             std::wstring restore = undo.original + undo.tail;
@@ -379,7 +379,7 @@ bool Engine::CheckRecentSnippet(std::wstring_view ws) {
     auto match = SnippetStore::Instance().FindMatch(recent);
     if (match.has_value()) {
         SetMuted();
-        Logger::Instance().Write("Snippet: автозамена триггера");
+        Logger::Instance().Write("Snippet: Trigger expanded");
         std::wstring repl = match->expansion;
         if (!ws.empty()) {
             if (repl.empty() || (repl.back() != L' ' && repl.back() != L'\t' && repl.back() != L'\n')) {
@@ -476,7 +476,7 @@ bool Engine::OnBoundary(int vk, bool command, bool shift) {
         double gap = NowSeconds() - buf_.LastBoundaryTime();
         if (DoubleSpacePeriod::ShouldTrigger(true, gap, buf_.LastWord())) {
             SetMuted();
-            Logger::Instance().Write("DoubleSpace: замена на точку с пробелом");
+            Logger::Instance().Write("DoubleSpace: Replaced double space with period and space");
             TextReplacer::Instance().Replace(1, L". ");
             buf_.ApplyDoubleSpacePeriod();
             return true;
@@ -535,7 +535,7 @@ bool Engine::ConvertBeforeReturn(bool shift) {
     if (SecureInput::Instance().CachedIsPassword(last_fg_hwnd_)) { buf_.Clear(); return false; }
 
     SetMuted();
-    Logger::Instance().Write("ConvertBeforeReturn: конверсия перед переводом строки");
+    Logger::Instance().Write("ConvertBeforeReturn: Converted word before newline");
     TextReplacer::Instance().Replace(static_cast<int>(word.length()), prop->text, true);
 
     buf_.ApplyConversion(prop->text);
@@ -705,7 +705,7 @@ bool Engine::MutedStuck() {
     if (!muted_) return false;
     if (NowSeconds() - muted_at_ > 0.15) {
         muted_ = false;
-        Logger::Instance().Write("Engine: сброс застрявшего muted флага");
+        Logger::Instance().Write("Engine: Reset stuck muted flag");
         return false;
     }
     return true;

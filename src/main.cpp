@@ -89,7 +89,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
 
     // 2. Load Settings (zero disk writes on startup)
     Settings::Instance().Load();
-    Logger::Instance().Write("Ultimakey: Запуск программы");
+    Logger::Instance().Write("Ultimakey: Starting application");
 
     // 3. Initialize Engine & Language Data from Resources
     if (!Engine::Instance().Initialize(hInstance)) {
@@ -113,7 +113,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
                                  nullptr, nullptr, hInstance, nullptr);
 
     if (!g_main_hwnd) {
-        Logger::Instance().Write("Ultimakey: Ошибка создания окна сообщений");
+        Logger::Instance().Write("Ultimakey: Failed to create message window");
         if (g_single_instance_mutex) CloseHandle(g_single_instance_mutex);
         timeEndPeriod(1);
         return 1;
@@ -136,13 +136,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
 
     // 7. Trim cold pages from working set (< 1 MB RAM) and enter Message Loop
     SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
-    Logger::Instance().Write("Main: Вход в цикл сообщений");
+    Logger::Instance().Write("Main: Entering message loop");
 
     MSG msg = {};
     BOOL bRet;
     while ((bRet = GetMessageW(&msg, nullptr, 0, 0)) != 0) {
         if (bRet == -1) {
-            Logger::Instance().Write("Main: Ошибка GetMessageW: " + std::to_string(GetLastError()));
+            Logger::Instance().Write("Main: GetMessageW error: " + std::to_string(GetLastError()));
             break;
         }
         HWND dlg = SettingsDialog::GetHwnd();
@@ -152,10 +152,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPWSTR /*l
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
-    Logger::Instance().Write("Main: Выход из цикла сообщений, bRet=" + std::to_string(bRet) + ", msg=" + std::to_string(msg.message));
+    Logger::Instance().Write("Main: Exiting message loop, bRet=" + std::to_string(bRet) + ", msg=" + std::to_string(msg.message));
 
     // 8. Cleanup & Shutdown
-    Logger::Instance().Write("Ultimakey: Завершение работы");
+    Logger::Instance().Write("Ultimakey: Shutting down");
     HookManager::Instance().Uninstall();
     TrayIcon::Instance().Destroy();
     Engine::Instance().Shutdown();

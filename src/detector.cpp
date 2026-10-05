@@ -27,7 +27,7 @@ bool LayoutDetector::WordExistsInSource(std::wstring_view w, bool cyrillic) cons
 }
 
 bool LayoutDetector::IsLayoutLetter(wchar_t c) noexcept {
-    if (c == L'.' || c == L',' || c == L'/' || c == L'?' || c == L';' || c == L':' || c == L'!' || c == 0x2026) return false;
+    if (c == L'/' || c == L'?' || c == L'!' || c == 0x2026) return false;
     if (IsLatin(c) || IsCyrillic(c)) return true;
     wchar_t r = Keymap::Instance().ConvertChar(c, true);
     if (IsCyrillic(r)) return true;
@@ -197,7 +197,7 @@ bool LayoutDetector::HasValidSourceBeforeTrailingPunctuation(std::wstring_view r
     }
 
     std::wstring_view semantic = Keymap::Core(whole);
-    if (semantic == whole || semantic.length() < 2) return false;
+    if (semantic == whole || semantic.empty()) return false;
     bool cyr = HasCyrillic(semantic);
     bool lat = HasLatin(semantic);
     if (cyr == lat) return false;
@@ -469,14 +469,26 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
         swapped = swapped_heap;
     }
 
-    // Trailing punctuation rule
-    if (source_cyrillic && !words_ru_.Contains(w) && user_words.count(w) == 0 && !swapped.empty() &&
-        Keymap::IsTrailingPunctuation(swapped.back())) {
+    // Trailing punctuation rule for Cyrillic source (e.g. rudds. -> hello. or ruffds, -> hello,)
+    if (source_cyrillic && !words_ru_.Contains(w) && user_words.count(w) == 0 && !core_raw.empty() &&
+        (Keymap::IsTrailingPunctuation(core_raw.back()) || (!swapped.empty() && Keymap::IsTrailingPunctuation(swapped.back())))) {
         size_t end = core_raw.length();
-        while (end > 0) {
-            wchar_t mapped = Keymap::Instance().ConvertChar(core_raw[end - 1], false);
-            if (Keymap::IsTrailingPunctuation(mapped)) end--;
-            else break;
+        while (end > 0 && (Keymap::IsTrailingPunctuation(core_raw[end - 1]) ||
+                           Keymap::IsTrailingPunctuation(Keymap::Instance().ConvertChar(core_raw[end - 1], false)))) {
+            end--;
+        }
+        if (end == 0) return SwapDecision::Keep();
+        return Decide(core_raw.substr(0, end), ignored, user_words, force_swap, prev, earlier, after_caret_jump);
+    }
+
+    // Trailing punctuation rule for Latin source (e.g. ghbdtn, -> привет, or hf,jnftn. -> работает.)
+    if (source_latin && !words_en_.Contains(w) && user_words.count(w) == 0 &&
+        !words_ru_.Contains(swapped) && !core_raw.empty() &&
+        (Keymap::IsTrailingPunctuation(core_raw.back()) || (!swapped.empty() && Keymap::IsTrailingPunctuation(swapped.back())))) {
+        size_t end = core_raw.length();
+        while (end > 0 && (Keymap::IsTrailingPunctuation(core_raw[end - 1]) ||
+                           Keymap::IsTrailingPunctuation(Keymap::Instance().ConvertChar(core_raw[end - 1], true)))) {
+            end--;
         }
         if (end == 0) return SwapDecision::Keep();
         return Decide(core_raw.substr(0, end), ignored, user_words, force_swap, prev, earlier, after_caret_jump);
@@ -501,6 +513,17 @@ SwapDecision LayoutDetector::Decide(std::wstring_view raw,
             }
         }
     }
+
+    // Accidental leading punctuation check (e.g. ,hello -> hello)
+    if (!source_is_real_word && w.length() >= 2 && (w.front() == L',' || w.front() == L'.' || w.front() == L';')) {
+        std::wstring_view stripped_lead = w.substr(1);
+        if (words_en_.Contains(stripped_lead) || words_ru_.Contains(stripped_lead) || user_words.count(stripped_lead) > 0) {
+            source_is_real_word = true;
+        }
+    }
+
+    // Disambiguate archaic Cyrillic dictionary entry "еру" to high-frequency English "the"
+    if (w == L"еру" && swapped == L"the") return SwapDecision::To(false);
 
     if (Data::IsInForceSwapBuiltin(swapped) && !source_is_real_word) return SwapDecision::To(to_cyrillic);
     if (force_swap.count(swapped) > 0) return SwapDecision::To(to_cyrillic);

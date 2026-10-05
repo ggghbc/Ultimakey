@@ -21,11 +21,11 @@ bool HookManager::Install() {
     mouse_hook_ = SetWindowsHookExW(WH_MOUSE_LL, LowLevelMouseProc, hinst, 0);
 
     if (!kb_hook_) {
-        Logger::Instance().Write("Hook: Ошибка установки хука клавиатуры");
+        Logger::Instance().Write("Hook: Failed to install low-level keyboard hook");
         return false;
     }
 
-    Logger::Instance().Write("Hook: Хуки клавиатуры и мыши успешно установлены");
+    Logger::Instance().Write("Hook: Low-level keyboard and mouse hooks installed successfully");
     return true;
 }
 

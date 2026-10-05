@@ -2,13 +2,24 @@
 build/
 bin/
 out/
+dist/
 .cache/
+cmake-build-*/
+scratch/
 
 # IDE / Editor files
 .vscode/
 .vs/
+.idea/
 *.user
 *.suo
+*.vcxproj*
+*.sln.docstates
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
 
 # Intermediate & binary build artifacts
 *.obj
@@ -17,14 +28,20 @@ out/
 *.lib
 *.pdb
 *.idb
+*.ilk
+*.exp
+*.exe
 
 # Log files
 *.log
 
-# Windows temp
+# Windows / OS temp
 Thumbs.db
 Desktop.ini
+.DS_Store
 
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd

@@ -38,7 +38,7 @@ enum CtrlId {
     ID_BTN_SAVE = 101,
     ID_BTN_CANCEL = 102,
 
-    // Tab 0 - General / Основные
+    // Tab 0 - General
     ID_CHK_AUTO = 201,
     ID_CHK_SPACE,
     ID_CHK_ENTER,
@@ -54,7 +54,7 @@ enum CtrlId {
     ID_LBL_LANG,
     ID_COMBO_LANG,
 
-    // Tab 1 - Hotkeys / Горячие клавиши
+    // Tab 1 - Hotkeys
     ID_LBL_HOTKEY = 301,
     ID_COMBO_HOTKEY,
     ID_LBL_MODS,
@@ -64,7 +64,7 @@ enum CtrlId {
     ID_CHK_WIN,
     ID_HINT_HOTKEY,
 
-    // Tab 2 - Snippets / Автозамена текста
+    // Tab 2 - Snippets
     ID_GRP_SNIP_LIST = 400,
     ID_LBL_SNIP_LIST = 401,
     ID_SEARCH_SNIP = 402,
@@ -79,7 +79,7 @@ enum CtrlId {
     ID_BTN_ADD_SNIP = 411,
     ID_HINT_SNIP_HOW = 412,
 
-    // Tab 3 - App Exceptions / Исключения программ
+    // Tab 3 - App Exceptions
     ID_GRP_APP_LIST = 500,
     ID_LBL_APP_LIST = 501,
     ID_SEARCH_APP = 502,
@@ -93,7 +93,7 @@ enum CtrlId {
     ID_BTN_ADD_APP = 510,
     ID_HINT_APP_MODES = 511,
 
-    // Tab 4 - Word Exceptions / Исключения слов
+    // Tab 4 - Word Exceptions
     ID_GRP_WORD_LIST = 600,
     ID_LBL_WORD_LIST = 601,
     ID_SEARCH_WORD = 602,
@@ -106,7 +106,7 @@ enum CtrlId {
     ID_BTN_ADD_WORD = 609,
     ID_HINT_WORD_FOOTNOTE = 610,
 
-    // Tab 5 - User Words / Словарь пользователя
+    // Tab 5 - User Words
     ID_GRP_USER_WORD_LIST = 650,
     ID_LBL_USER_WORD_LIST = 651,
     ID_SEARCH_USER_WORD = 652,
@@ -119,7 +119,7 @@ enum CtrlId {
     ID_BTN_ADD_USER_WORD = 659,
     ID_HINT_USER_WORD_FOOTNOTE = 660,
 
-    // Tab 6 - About / О программе
+    // Tab 6 - About
     ID_LBL_ABOUT_TITLE = 700,
     ID_LBL_ABOUT_DESC = 701,
     ID_GRP_ABOUT_LINKS = 702,
@@ -491,7 +491,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             };
 
             // ==========================================
-            // TAB 0 Controls: General / Основные
+            // TAB 0 Controls: General
             // ==========================================
             int y = s(38);
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP, s(25), y, s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_CHK_AUTO), hinst, nullptr), 0, StrId::OptAutoEnabled); y += s(22);
@@ -516,7 +516,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, s(170), y, s(160), s(100), hwnd, reinterpret_cast<HMENU>(ID_COMBO_LANG), hinst, nullptr), 0);
 
             // ==========================================
-            // TAB 1 Controls: Hotkeys / Горячие клавиши
+            // TAB 1 Controls: Hotkeys
             // ==========================================
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(25), s(50), s(850), s(20), hwnd, reinterpret_cast<HMENU>(ID_LBL_HOTKEY), hinst, nullptr), 1, StrId::LblHotkeySwitch);
             add_ctrl(CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, s(25), s(75), s(280), s(200), hwnd, reinterpret_cast<HMENU>(ID_COMBO_HOTKEY), hinst, nullptr), 1);
@@ -528,7 +528,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(25), s(185), s(850), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_HOTKEY), hinst, nullptr), 1, StrId::HintHotkeySelection);
 
             // ==========================================
-            // TAB 2 Controls: Snippets / Автозамена
+            // TAB 2 Controls: Snippets
             // ==========================================
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_SNIP_LIST), hinst, nullptr), 2, StrId::GrpSnippetsList);
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(56), s(300), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_SNIP_LIST), hinst, nullptr), 2, StrId::LblSnippetsList);
@@ -546,7 +546,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(325), s(850), s(36), hwnd, reinterpret_cast<HMENU>(ID_HINT_SNIP_HOW), hinst, nullptr), 2, StrId::HintSnippetsHow);
 
             // ==========================================
-            // TAB 3 Controls: App Exceptions / Исключения программ
+            // TAB 3 Controls: App Exceptions
             // ==========================================
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_APP_LIST), hinst, nullptr), 3, StrId::GrpAppList);
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(56), s(300), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_APP_LIST), hinst, nullptr), 3, StrId::LblAppList);
@@ -563,7 +563,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(322), s(850), s(45), hwnd, reinterpret_cast<HMENU>(ID_HINT_APP_MODES), hinst, nullptr), 3, StrId::HintAppModes);
 
             // ==========================================
-            // TAB 4 Controls: Word Exceptions / Слова, которые не исправляются
+            // TAB 4 Controls: Word Exceptions
             // ==========================================
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_WORD_LIST), hinst, nullptr), 4, StrId::GrpWordList);
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(56), s(300), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_WORD_LIST), hinst, nullptr), 4, StrId::LblWordList);
@@ -579,7 +579,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(325), s(850), s(36), hwnd, reinterpret_cast<HMENU>(ID_HINT_WORD_FOOTNOTE), hinst, nullptr), 4, StrId::HintWordFootnote);
 
             // ==========================================
-            // TAB 5 Controls: User Dictionary / Словарь пользователя (Positive List)
+            // TAB 5 Controls: User Dictionary (Positive List)
             // ==========================================
             add_ctrl(CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | BS_GROUPBOX, s(22), s(40), s(876), s(195), hwnd, reinterpret_cast<HMENU>(ID_GRP_USER_WORD_LIST), hinst, nullptr), 5, StrId::GrpUserWordList);
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(56), s(300), s(18), hwnd, reinterpret_cast<HMENU>(ID_LBL_USER_WORD_LIST), hinst, nullptr), 5, StrId::LblUserWordList);
@@ -595,7 +595,7 @@ LRESULT CALLBACK SettingsDialog::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(325), s(850), s(36), hwnd, reinterpret_cast<HMENU>(ID_HINT_USER_WORD_FOOTNOTE), hinst, nullptr), 5, StrId::HintUserWordFootnote);
 
             // ==========================================
-            // TAB 6 Controls: About / О программе
+            // TAB 6 Controls: About
             // ==========================================
             HWND htitle = add_ctrl(CreateWindowExW(0, L"STATIC", L"", WS_CHILD, s(35), s(45), s(850), s(28), hwnd, reinterpret_cast<HMENU>(ID_LBL_ABOUT_TITLE), hinst, nullptr), 6, StrId::AboutTitle);
             if (g_title_font) {

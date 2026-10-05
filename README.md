@@ -4,7 +4,7 @@ Ultimakey is an ultra-lightweight, high-performance utility that switches keyboa
 
 Ultimakey delivers instantaneous layout switching with virtually zero CPU usage and less than 3 MB of RAM consumption.
 
----
+![demo](./readme/demo.gif)
 
 ## Key Performance Metrics
 

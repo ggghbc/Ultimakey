@@ -8,11 +8,11 @@ Ultimakey delivers instantaneous layout switching with virtually zero CPU usage 
 
 ## Key Performance Metrics
 
-| Metric | Ultimakey (C++20) | Typical Alternatives (.NET / Electron) |
+| Metric | Ultimakey (C++20) | Alternatives |
 | :--- | :--- | :--- |
 | RAM Footprint | ~2.3 MB (trims to < 1 MB on idle) | 50 to 150+ MB |
 | Idle CPU Usage | 0.00% | 0.5% to 2.0% |
-| Input Hook Overhead | < 2-5 microseconds | 1 to 15 milliseconds |
+| Input Hook Overhead | 1-5 microseconds | 1 to 15 milliseconds |
 | Binary Size | ~4.4 MB (fully self-contained executable) | 30 to 80+ MB |
 | External Dependencies | None (embedded PE RCDATA resources) | Multiple external files / runtimes |
 | Cold Start Time | < 5 milliseconds | 500 to 2000 milliseconds |
